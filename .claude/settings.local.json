@@ -19,7 +19,11 @@
       "Bash(chmod +x \"/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App/serve.sh\")",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(mkdir -p /tmp/daily-insight-deploy)",
+      "Bash(cp \"/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App/index.html\" /tmp/daily-insight-deploy/index.html)"
     ]
   }
 }
