@@ -30,7 +30,13 @@
       "Bash(git branch *)",
       "Bash(git remote *)",
       "Bash(brew --version)",
-      "Bash(brew install *)"
+      "Bash(brew install *)",
+      "Bash(gh pr create --repo uyntrst/daily-insight --base main --head feat/parkinson-ui --title 'feat: PM/PO Daily Insight App — UI theo định luật Parkinson' --body ' *)",
+      "Bash(git push *)",
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "Bash(python3 -c \"import sys,json; [print\\(b['name']\\) for b in json.load\\(sys.stdin\\)]\")",
+      "Bash(git commit -m 'chore: allowlist cleanup *)"
     ]
   }
 }
