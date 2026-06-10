@@ -19,7 +19,24 @@
       "Bash(chmod +x \"/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App/serve.sh\")",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(mkdir -p /tmp/daily-insight-deploy)",
+      "Bash(cp \"/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App/index.html\" /tmp/daily-insight-deploy/index.html)",
+      "Bash(pkill -f \"ruby.*httpd.*3457\")",
+      "Bash(ruby -run -e httpd \"/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App\" -p 3457)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3457/index.html)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(brew --version)",
+      "Bash(brew install *)",
+      "Bash(gh pr create --repo uyntrst/daily-insight --base main --head feat/parkinson-ui --title 'feat: PM/PO Daily Insight App — UI theo định luật Parkinson' --body ' *)",
+      "Bash(git push *)",
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "Bash(python3 -c \"import sys,json; [print\\(b['name']\\) for b in json.load\\(sys.stdin\\)]\")",
+      "Bash(git commit -m 'chore: allowlist cleanup *)"
     ]
   }
 }
