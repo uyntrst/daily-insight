@@ -4,7 +4,7 @@
     {
       "name": "daily-insight",
       "runtimeExecutable": "ruby",
-      "runtimeArgs": ["-run", "-e", "httpd", "/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App", "-p", "3457"],
+      "runtimeArgs": ["-run", "-e", "httpd", "/Users/uynnewin/workspace/daily-insight", "-p", "3457"],
       "port": 3457
     }
   ]

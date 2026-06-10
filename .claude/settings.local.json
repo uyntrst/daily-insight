@@ -36,7 +36,8 @@
       "Bash(gh repo *)",
       "Bash(gh api *)",
       "Bash(python3 -c \"import sys,json; [print\\(b['name']\\) for b in json.load\\(sys.stdin\\)]\")",
-      "Bash(git commit -m 'chore: allowlist cleanup *)"
+      "Bash(git commit -m 'chore: allowlist cleanup *)",
+      "mcp__511e75f7-93b6-40ac-8152-749d21c7e02d__read_file_content"
     ]
   }
 }
