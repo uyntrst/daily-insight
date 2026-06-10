@@ -28,7 +28,9 @@
       "Bash(ruby -run -e httpd \"/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App\" -p 3457)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3457/index.html)",
       "Bash(git branch *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(brew --version)",
+      "Bash(brew install *)"
     ]
   }
 }
