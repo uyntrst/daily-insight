@@ -201,6 +201,103 @@
 
   /* ── SCROLLBAR ── */
   ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:#374151; border-radius:10px; }
+
+  /* ── DRAWER ── */
+  .drawer-backdrop {
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200;
+    opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .drawer-backdrop.open { opacity:1; pointer-events:all; }
+
+  .drawer {
+    position:fixed; top:0; right:0; bottom:0; width:420px; max-width:95vw;
+    background:#161f30; border-left:1px solid #1f2937; z-index:201;
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .28s cubic-bezier(.4,0,.2,1);
+    overflow:hidden;
+  }
+  .drawer.open { transform:translateX(0); }
+
+  .drawer-header {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding:20px 22px 16px; border-bottom:1px solid var(--border); gap:12px; flex-shrink:0;
+  }
+  .drawer-title { font-size:15px; font-weight:700; color:var(--text); line-height:1.5; flex:1; }
+  .drawer-close {
+    width:28px; height:28px; border-radius:6px; background:var(--surface2);
+    border:none; color:var(--text3); cursor:pointer; font-size:16px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:all .15s;
+  }
+  .drawer-close:hover { background:#374151; color:var(--text); }
+
+  .drawer-body { flex:1; overflow-y:auto; padding:18px 22px; display:flex; flex-direction:column; gap:16px; }
+
+  /* Status + meta badges row */
+  .drawer-meta { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+
+  /* THE KEY BLOCK — Cần làm gì */
+  .drawer-action-block {
+    background:var(--surface2); border:1px solid #374151;
+    border-radius:10px; padding:14px 16px;
+    border-left:3px solid var(--red);
+  }
+  .drawer-action-block.orange { border-left-color:var(--orange); }
+  .drawer-action-block.blue   { border-left-color:var(--blue); }
+  .drawer-action-block.yellow { border-left-color:var(--yellow); }
+  .drawer-action-block.purple { border-left-color:var(--purple); }
+  .dab-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:7px; }
+  .dab-content { font-size:13px; font-weight:600; color:var(--text); line-height:1.6; white-space:pre-wrap; }
+
+  /* Info row */
+  .drawer-row { display:flex; flex-direction:column; gap:4px; }
+  .dr-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); }
+  .dr-value { font-size:13px; color:var(--text2); line-height:1.6; white-space:pre-wrap; }
+  .dr-value.highlight { color:var(--text); font-weight:500; }
+
+  /* Waiting chip inside drawer */
+  .drawer-wait {
+    display:flex; align-items:flex-start; gap:10px;
+    background:rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.2);
+    border-radius:8px; padding:10px 13px;
+  }
+  .drawer-wait-icon { font-size:16px; flex-shrink:0; }
+  .drawer-wait-body { flex:1; }
+  .drawer-wait-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#60a5fa; margin-bottom:3px; }
+  .drawer-wait-value { font-size:13px; color:#93c5fd; line-height:1.5; }
+
+  /* Deadline block */
+  .drawer-deadline {
+    display:flex; align-items:center; gap:10px;
+    border-radius:8px; padding:10px 13px;
+  }
+  .drawer-deadline.overdue { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); }
+  .drawer-deadline.soon    { background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.25); }
+  .drawer-deadline.ok      { background:var(--surface2); border:1px solid var(--border); }
+  .dl-icon { font-size:18px; flex-shrink:0; }
+  .dl-body {}
+  .dl-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:2px; }
+  .dl-value { font-size:13px; font-weight:600; }
+  .dl-value.overdue { color:#fca5a5; }
+  .dl-value.soon    { color:#fdba74; }
+  .dl-value.ok      { color:var(--text2); }
+
+  /* Risk block */
+  .drawer-risk {
+    display:flex; align-items:flex-start; gap:10px;
+    background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.18);
+    border-radius:8px; padding:10px 13px;
+  }
+  .drawer-risk-icon { font-size:15px; flex-shrink:0; }
+  .drawer-risk-text { font-size:12px; color:#fca5a5; line-height:1.6; }
+
+  /* Divider */
+  .drawer-divider { height:1px; background:var(--border); }
+
+  /* clickable task cards */
+  .ac { cursor:pointer; }
+  .pq-card { cursor:pointer; }
+  .focus-hero { cursor:pointer; }
+  .oh-item { cursor:pointer; }
 </style>
 </head>
 <body>
@@ -220,6 +317,18 @@
       <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
     </div>
   </header>
+
+  <!-- DRAWER BACKDROP -->
+  <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+
+  <!-- DETAIL DRAWER -->
+  <div class="drawer" id="detail-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title" id="drawer-title"></div>
+      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </div>
 
   <!-- EMPTY STATE -->
   <div class="dropzone" id="dropzone">
@@ -333,6 +442,7 @@ function parseExcel(file) {
 
 // ── RENDER ─────────────────────────────────────────────────────────────────
 function renderDashboard(tasks, sheetName, fileName) {
+  _taskStore = tasks;
   document.getElementById('dropzone').style.display = 'none';
   document.getElementById('dashboard').style.display = 'grid';
 
@@ -394,9 +504,10 @@ function renderSidebar(tasks) {
 
   top.forEach((t, i) => {
     const ds = t.deadline ? deadlineStatus(t.deadline) : null;
+    const idx = _taskStore.indexOf(t);
     if (i === 0) {
       html += `
-        <div class="focus-hero">
+        <div class="focus-hero" onclick="openDrawer(${idx})">
           <div class="hero-rank">🔴 #1 · ${esc(t.status)}${ds?.type==='overdue' ? ` · QUÁ HẠN ${ds.diff} NGÀY` : ''}</div>
           <div class="hero-title">${esc(t.nextAction || t.task)}</div>
           <div class="hero-note">${esc(t.task)}${t.description ? ` — ${t.description.slice(0,80)}` : ''}</div>
@@ -408,7 +519,7 @@ function renderSidebar(tasks) {
       const colorCls = t.group === 'urgent' ? 'c-yellow' : (ds?.type==='overdue'||ds?.type==='today') ? 'c-orange' : 'c-blue';
       const tagHtml = ds ? (ds.type==='overdue'||ds.type==='today' ? `<span class="tag tag-red">${esc(ds.label)}</span>` : `<span class="soon-tag">⏰ ${esc(ds.label)}</span>`) : (t.group==='urgent' ? `<span class="tag tag-red">Urgent</span>` : '');
       html += `
-        <div class="pq-card ${colorCls}">
+        <div class="pq-card ${colorCls}" onclick="openDrawer(${idx})">
           <div class="pq-num">#${i+1}</div>
           <div class="pq-body">
             <div class="pq-title">${esc(t.nextAction || t.task)}</div>
@@ -511,8 +622,9 @@ function renderMain(tasks) {
           <div class="oh-list">`;
     onhold.forEach(t => {
       const dotColor = t.waitingFor ? '#60a5fa' : '#a78bfa';
+      const idx = _taskStore.indexOf(t);
       html += `
-            <div class="oh-item">
+            <div class="oh-item" onclick="openDrawer(${idx})">
               <div class="oh-dot" style="background:${dotColor}"></div>
               <div>
                 <div class="oh-title">${esc(t.task)}</div>
@@ -534,8 +646,9 @@ function renderMain(tasks) {
         <div class="collapse-content">
           <div class="oh-list">`;
     nmi.forEach(t => {
+      const idx = _taskStore.indexOf(t);
       html += `
-            <div class="oh-item">
+            <div class="oh-item" onclick="openDrawer(${idx})">
               <div class="oh-dot" style="background:#6b7280"></div>
               <div>
                 <div class="oh-title">${esc(t.task)}</div>
@@ -549,13 +662,17 @@ function renderMain(tasks) {
   document.getElementById('main-panel').innerHTML = html;
 }
 
+// ── TASK STORE (for drawer lookup) ─────────────────────────────────────────
+let _taskStore = [];
+
 function renderAC(t, color) {
   const ds = t.deadline ? deadlineStatus(t.deadline) : null;
   const riskColor = { red:'r-red', orange:'r-orange', blue:'r-blue', yellow:'r-yellow', purple:'r-purple' }[color] || 'r-orange';
   const risk = buildRisk(t, ds);
+  const idx = _taskStore.indexOf(t);
 
   return `
-    <div class="ac ${color}">
+    <div class="ac ${color}" onclick="openDrawer(${idx})">
       <span class="ac-check"></span>
       <div class="ac-body">
         <div class="ac-action">${esc(t.nextAction || '❓ Chưa có next action')}</div>
@@ -572,8 +689,117 @@ function buildRisk(t, ds) {
   if (ds?.type === 'today')   return `Deadline hôm nay — phải hoàn thành trước cuối ngày`;
   if (ds?.type === 'soon')    return `Deadline còn ${ds.diff} ngày — không làm kịp sẽ ảnh hưởng sprint`;
   if (!t.nextAction)          return `Chưa có next action — nguy cơ trôi task`;
-  if (t.waitingFor && !t.nextAction) return `Đang chờ phản hồi — nếu không follow-up sẽ tiếp tục block`;
+  if (t.waitingFor)           return `Đang chờ phản hồi — nếu không follow-up sẽ tiếp tục block`;
   return '';
+}
+
+// ── DRAWER ─────────────────────────────────────────────────────────────────
+function openDrawer(idx) {
+  const t = _taskStore[idx];
+  if (!t) return;
+
+  const ds = t.deadline ? deadlineStatus(t.deadline) : null;
+  const colorMap = { urgent:'red', inprogress:'orange', waiting:'blue', clarify:'yellow', onhold:'purple', needinfo:'gray' };
+  const acColor = colorMap[t.group] || 'gray';
+
+  const statusEmoji = { urgent:'🔴', inprogress:'🟠', clarify:'🟡', waiting:'🔵', onhold:'🟣', done:'🟢', needinfo:'⚪' };
+  const emoji = statusEmoji[t.group] || '⚪';
+
+  // --- Deadline block ---
+  let deadlineHtml = '';
+  if (t.deadline) {
+    const dlCls = ds?.type === 'overdue' ? 'overdue' : ds?.type === 'soon' || ds?.type === 'today' ? 'soon' : 'ok';
+    const dlIcon = ds?.type === 'overdue' ? '⚠️' : ds?.type === 'today' ? '🔴' : ds?.type === 'soon' ? '⏰' : '📅';
+    const dlText = ds?.type === 'overdue' ? `Quá hạn ${ds.diff} ngày (${fmtDate(t.deadline)})`
+                 : ds?.type === 'today' ? `Hôm nay — deadline ngay hôm nay!`
+                 : ds?.type === 'soon'  ? `Còn ${ds.diff} ngày — ${fmtDate(t.deadline)}`
+                 : fmtDate(t.deadline);
+    deadlineHtml = `
+      <div class="drawer-deadline ${dlCls}">
+        <div class="dl-icon">${dlIcon}</div>
+        <div class="dl-body">
+          <div class="dl-label">Deadline</div>
+          <div class="dl-value ${dlCls}">${esc(dlText)}</div>
+        </div>
+      </div>`;
+  }
+
+  // --- Risk block ---
+  const risk = buildRisk(t, ds);
+  const riskHtml = risk ? `
+    <div class="drawer-risk">
+      <div class="drawer-risk-icon">⚡</div>
+      <div class="drawer-risk-text"><strong>Nếu bỏ qua:</strong> ${esc(risk)}</div>
+    </div>` : '';
+
+  // --- Waiting block ---
+  const waitHtml = t.waitingFor ? `
+    <div class="drawer-wait">
+      <div class="drawer-wait-icon">🔵</div>
+      <div class="drawer-wait-body">
+        <div class="drawer-wait-label">Đang chờ</div>
+        <div class="drawer-wait-value">${esc(t.waitingFor)}</div>
+      </div>
+    </div>` : '';
+
+  // --- Next action block ---
+  const naHtml = `
+    <div class="drawer-action-block ${acColor}">
+      <div class="dab-label">✅ Cần làm gì</div>
+      <div class="dab-content">${esc(t.nextAction || '❓ Chưa xác định — cần làm rõ với stakeholder')}</div>
+    </div>`;
+
+  // --- Description ---
+  const descHtml = t.description ? `
+    <div class="drawer-row">
+      <div class="dr-label">Mô tả</div>
+      <div class="dr-value">${esc(t.description)}</div>
+    </div>` : '';
+
+  // --- Note ---
+  const noteHtml = t.note ? `
+    <div class="drawer-row">
+      <div class="dr-label">Ghi chú / Nguồn</div>
+      <div class="dr-value">${esc(t.note)}</div>
+    </div>` : '';
+
+  // Assemble body
+  document.getElementById('drawer-title').textContent = t.task;
+  document.getElementById('drawer-body').innerHTML = `
+    <div class="drawer-meta">
+      <span class="tag ${acColor === 'red' ? 'tag-red' : acColor === 'orange' ? 'tag-orange' : acColor === 'blue' ? 'tag-blue' : acColor === 'yellow' ? 'tag-yellow' : acColor === 'purple' ? 'tag-purple' : 'tag-gray'}">${emoji} ${esc(t.status)}</span>
+      ${t.workType ? `<span class="tag tag-gray">${esc(t.workType)}</span>` : ''}
+      ${t.needMoreInfo ? `<span class="tag tag-gray">⚪ Need More Info</span>` : ''}
+    </div>
+
+    ${deadlineHtml}
+    ${naHtml}
+    ${waitHtml}
+    ${riskHtml}
+    ${(t.description || t.note) ? `<div class="drawer-divider"></div>` : ''}
+    ${descHtml}
+    ${noteHtml}
+  `;
+
+  document.getElementById('detail-drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('detail-drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// Also wire up on-hold & nmi items — store tasks after render
+function storeAndRender(tasks, sheetName, fileName) {
+  _taskStore = tasks;
+  renderDashboard(tasks, sheetName, fileName);
+  // Add onclick to oh-items after render
+  document.querySelectorAll('[data-task-idx]').forEach(el => {
+    el.onclick = () => openDrawer(+el.dataset.taskIdx);
+  });
 }
 
 // ── EVENTS ─────────────────────────────────────────────────────────────────
