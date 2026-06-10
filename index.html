@@ -3,478 +3,605 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Daily Insight — 09/06/2026</title>
+<title>PM/PO Daily Insight</title>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg: #0a0f1e;
-    --surface: #111827;
-    --surface2: #1f2937;
-    --border: #1f2937;
-    --text: #f9fafb;
-    --text2: #9ca3af;
-    --text3: #4b5563;
-    --red: #ef4444; --red-dim: rgba(239,68,68,0.12); --red-glow: rgba(239,68,68,0.25);
+    --bg: #0a0f1e; --surface: #111827; --surface2: #1f2937; --border: #1f2937;
+    --text: #f9fafb; --text2: #9ca3af; --text3: #4b5563;
+    --red: #ef4444; --red-dim: rgba(239,68,68,0.12);
     --orange: #f97316; --orange-dim: rgba(249,115,22,0.1);
     --yellow: #fbbf24; --yellow-dim: rgba(251,191,36,0.1);
     --blue: #60a5fa; --blue-dim: rgba(96,165,250,0.1);
     --purple: #a78bfa; --purple-dim: rgba(167,139,250,0.1);
-    --green: #34d399;
     --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
   }
-
   html { font-size: 15px; }
   body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
 
-  .shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
-
-  /* TOP BAR */
+  /* ── TOPBAR ── */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 32px; border-bottom: 1px solid var(--border);
-    background: rgba(10,15,30,0.95); backdrop-filter: blur(12px);
+    padding: 12px 28px; border-bottom: 1px solid var(--border);
+    background: rgba(10,15,30,0.96); backdrop-filter: blur(12px);
     position: sticky; top: 0; z-index: 100;
   }
   .topbar-left { display: flex; align-items: center; gap: 12px; }
-  .topbar-logo { font-size: 13px; font-weight: 700; color: var(--text2); letter-spacing: 0.05em; }
-  .topbar-sep { color: var(--text3); }
-  .topbar-date { font-size: 13px; color: var(--text3); }
+  .topbar-logo { font-size: 13px; font-weight: 700; color: var(--text2); }
+  .topbar-date { font-size: 12px; color: var(--text3); }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+
   .mood-chip {
-    display: flex; align-items: center; gap: 7px;
-    background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);
-    border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 600; color: #fbbf24;
+    display: flex; align-items: center; gap: 6px;
+    border-radius: 20px; padding: 5px 13px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3); color: #fbbf24;
+  }
+  .mood-chip.red    { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
+  .mood-chip.green  { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); color: #6ee7b7; }
+  .mood-chip.blue   { background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.3); color: #93c5fd; }
+  .mood-chip.gray   { background: rgba(107,114,128,0.15); border-color: rgba(107,114,128,0.3); color: #d1d5db; }
+
+  /* ── IMPORT BUTTON ── */
+  .import-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid #374151;
+    color: var(--text2); border-radius: 8px; padding: 7px 14px;
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font);
+    transition: all 0.15s;
+  }
+  .import-btn:hover { background: #374151; color: var(--text); border-color: #4b5563; }
+  .import-btn.has-file { border-color: rgba(52,211,153,0.4); color: #6ee7b7; background: rgba(52,211,153,0.08); }
+
+  /* ── DROP ZONE (empty state) ── */
+  .dropzone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; height: calc(100vh - 53px);
+    border: 2px dashed var(--border); border-radius: 16px; margin: 24px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: #374151; background: rgba(255,255,255,0.02); }
+  .dropzone-icon { font-size: 48px; }
+  .dropzone h2 { font-size: 18px; font-weight: 700; color: var(--text2); }
+  .dropzone p { font-size: 13px; color: var(--text3); text-align: center; line-height: 1.7; }
+  .dropzone-hint {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; font-size: 12px; color: var(--text3);
+    font-family: monospace; letter-spacing: 0.03em;
   }
 
-  /* BODY */
+  /* ── MAIN LAYOUT ── */
   .body { display: grid; grid-template-columns: 300px 1fr; }
-
-  /* LEFT COLUMN */
   .focus-col {
-    border-right: 1px solid var(--border);
-    padding: 24px 20px;
-    display: flex; flex-direction: column; gap: 8px;
+    border-right: 1px solid var(--border); padding: 20px 18px;
+    display: flex; flex-direction: column; gap: 7px;
     height: calc(100vh - 53px); overflow-y: auto; position: sticky; top: 53px;
   }
-  .focus-label {
-    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--text3); margin-bottom: 4px;
+  .main-panel {
+    padding: 20px 26px; display: flex; flex-direction: column; gap: 20px;
+    overflow-y: auto; height: calc(100vh - 53px);
   }
 
-  /* HERO CARD */
+  /* ── SIDEBAR ── */
+  .focus-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; }
+
   .focus-hero {
-    background: var(--red-dim);
-    border: 1px solid rgba(239,68,68,0.4);
-    border-radius: 12px; padding: 18px;
-    position: relative; overflow: hidden;
+    background: var(--red-dim); border: 1px solid rgba(239,68,68,0.4);
+    border-radius: 12px; padding: 16px; position: relative; overflow: hidden;
     animation: pulse-border 3s ease-in-out infinite;
   }
-  @keyframes pulse-border {
-    0%, 100% { border-color: rgba(239,68,68,0.4); }
-    50% { border-color: rgba(239,68,68,0.8); }
-  }
-  .focus-hero::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, #ef4444, #f97316);
-  }
-  .hero-rank { font-size: 10px; font-weight: 800; color: #f87171; letter-spacing: 0.1em; margin-bottom: 8px; }
-  .hero-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.5; margin-bottom: 6px; }
-  .hero-note { font-size: 11px; color: #fca5a5; line-height: 1.6; }
-  .overdue-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--red); color: white;
-    border-radius: 6px; padding: 4px 9px;
-    font-size: 11px; font-weight: 700; margin-top: 10px;
-  }
+  @keyframes pulse-border { 0%,100%{border-color:rgba(239,68,68,0.4)} 50%{border-color:rgba(239,68,68,0.8)} }
+  .focus-hero::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#ef4444,#f97316); }
+  .hero-rank { font-size:10px; font-weight:800; color:#f87171; letter-spacing:.1em; margin-bottom:6px; }
+  .hero-title { font-size:13px; font-weight:700; color:var(--text); line-height:1.5; margin-bottom:5px; }
+  .hero-note { font-size:11px; color:#fca5a5; line-height:1.6; }
 
-  /* PRIORITY QUEUE CARDS */
   .pq-card {
-    border-radius: 10px; padding: 12px 14px;
-    display: flex; align-items: flex-start; gap: 10px;
-    border: 1px solid transparent; transition: border-color 0.15s;
-    cursor: default;
+    border-radius:10px; padding:11px 13px; display:flex; align-items:flex-start; gap:9px;
+    border:1px solid transparent; transition:border-color .15s;
   }
-  .pq-card:hover { border-color: var(--border); }
-  .pq-card.c-orange { background: var(--orange-dim); }
-  .pq-card.c-yellow { background: var(--yellow-dim); }
-  .pq-card.c-blue   { background: rgba(96,165,250,0.06); }
-  .pq-num { font-size: 11px; font-weight: 800; color: var(--text3); min-width: 16px; padding-top: 2px; }
-  .pq-body { flex: 1; }
-  .pq-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; line-height: 1.4; }
-  .pq-sub { font-size: 11px; color: var(--text2); line-height: 1.5; }
-  .pq-meta { margin-top: 5px; }
-  .tag {
-    display: inline-block; padding: 2px 7px; border-radius: 4px;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
-  }
-  .tag-red    { background: rgba(239,68,68,0.15);  color: #fca5a5; }
-  .tag-orange { background: rgba(249,115,22,0.15); color: #fdba74; }
-  .tag-yellow { background: rgba(251,191,36,0.15); color: #fde68a; }
-  .tag-blue   { background: rgba(96,165,250,0.15); color: #93c5fd; }
-  .tag-gray   { background: rgba(75,85,99,0.3);    color: var(--text2); }
-  .tag-purple { background: rgba(167,139,250,0.15);color: #c4b5fd; }
+  .pq-card:hover { border-color:var(--border); }
+  .pq-card.c-orange { background:var(--orange-dim); }
+  .pq-card.c-yellow { background:var(--yellow-dim); }
+  .pq-card.c-blue   { background:rgba(96,165,250,0.06); }
+  .pq-num { font-size:11px; font-weight:800; color:var(--text3); min-width:15px; padding-top:2px; }
+  .pq-body { flex:1; }
+  .pq-title { font-size:12px; font-weight:600; color:var(--text); margin-bottom:2px; line-height:1.4; }
+  .pq-sub { font-size:11px; color:var(--text2); line-height:1.5; }
+  .pq-meta { margin-top:4px; }
+
+  /* ── TAGS ── */
+  .tag { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.03em; }
+  .tag-red    { background:rgba(239,68,68,0.15);  color:#fca5a5; }
+  .tag-orange { background:rgba(249,115,22,0.15); color:#fdba74; }
+  .tag-yellow { background:rgba(251,191,36,0.15); color:#fde68a; }
+  .tag-blue   { background:rgba(96,165,250,0.15); color:#93c5fd; }
+  .tag-gray   { background:rgba(75,85,99,0.3);    color:var(--text2); }
+  .tag-purple { background:rgba(167,139,250,0.15);color:#c4b5fd; }
+  .tag-green  { background:rgba(52,211,153,0.15); color:#6ee7b7; }
   .soon-tag {
-    display: inline-flex; align-items: center; gap: 4px;
-    background: rgba(249,115,22,0.18); border: 1px solid rgba(249,115,22,0.35);
-    border-radius: 5px; padding: 2px 7px; font-size: 10px; font-weight: 700; color: #fb923c;
+    display:inline-flex; align-items:center; gap:4px;
+    background:rgba(249,115,22,0.18); border:1px solid rgba(249,115,22,0.35);
+    border-radius:5px; padding:2px 7px; font-size:10px; font-weight:700; color:#fb923c;
+  }
+  .overdue-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    background:var(--red); color:white; border-radius:6px;
+    padding:4px 9px; font-size:11px; font-weight:700; margin-top:8px;
   }
 
-  /* RIGHT MAIN */
-  .main-panel { padding: 24px 28px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; height: calc(100vh - 53px); }
-
-  /* STAT ROW */
-  .stat-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  /* ── STAT ROW ── */
+  .stat-row { display:grid; grid-template-columns:repeat(6,1fr); gap:7px; }
   .stat {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px; text-align: center;
-    transition: transform 0.15s, border-color 0.15s; cursor: default;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:11px; text-align:center;
+    transition:transform .15s,border-color .15s;
   }
-  .stat:hover { transform: translateY(-2px); border-color: #374151; }
-  .stat .s-emoji { font-size: 15px; }
-  .stat .s-num { font-size: 24px; font-weight: 800; line-height: 1.1; margin: 3px 0 2px; }
-  .stat .s-label { font-size: 10px; color: var(--text3); font-weight: 500; }
+  .stat:hover { transform:translateY(-2px); border-color:#374151; }
+  .stat .s-emoji { font-size:14px; }
+  .stat .s-num { font-size:22px; font-weight:800; line-height:1.1; margin:3px 0 2px; }
+  .stat .s-label { font-size:10px; color:var(--text3); font-weight:500; }
 
-  /* SECTION HEADER */
-  .sec-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
-  .sec-head h2 { font-size: 13px; font-weight: 700; }
-  .sec-count { background: var(--surface2); border-radius: 20px; padding: 2px 9px; font-size: 11px; color: var(--text2); }
-  .sec-line { flex: 1; height: 1px; background: var(--border); }
+  /* ── SECTION ── */
+  .sec-head { display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+  .sec-head h2 { font-size:13px; font-weight:700; }
+  .sec-count { background:var(--surface2); border-radius:20px; padding:2px 9px; font-size:11px; color:var(--text2); }
+  .sec-line { flex:1; height:1px; background:var(--border); }
 
-  /* ACTION CARDS */
-  .action-stack { display: flex; flex-direction: column; gap: 7px; }
+  /* ── ACTION CARDS ── */
+  .action-stack { display:flex; flex-direction:column; gap:7px; }
   .ac {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 13px 15px 13px 19px;
-    display: flex; align-items: flex-start; gap: 11px;
-    position: relative; overflow: hidden;
-    transition: border-color 0.15s;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px 12px 18px;
+    display:flex; align-items:flex-start; gap:10px;
+    position:relative; overflow:hidden; transition:border-color .15s;
   }
-  .ac:hover { border-color: #374151; }
-  .ac::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
-  .ac.red::before    { background: var(--red); }
-  .ac.orange::before { background: var(--orange); }
-  .ac.blue::before   { background: var(--blue); }
-  .ac.yellow::before { background: var(--yellow); }
-  .ac.purple::before { background: var(--purple); }
+  .ac:hover { border-color:#374151; }
+  .ac::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; }
+  .ac.red::before    { background:var(--red); }
+  .ac.orange::before { background:var(--orange); }
+  .ac.blue::before   { background:var(--blue); }
+  .ac.yellow::before { background:var(--yellow); }
+  .ac.purple::before { background:var(--purple); }
 
-  .ac-check {
-    width: 16px; height: 16px; border: 2px solid #374151;
-    border-radius: 4px; flex-shrink: 0; margin-top: 2px;
-  }
-  .ac-body { flex: 1; min-width: 0; }
-  .ac-action { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; line-height: 1.5; }
-  .ac-target { font-size: 11px; color: var(--text2); margin-bottom: 3px; }
-  .ac-risk { font-size: 11px; line-height: 1.5; }
-  .r-red    { color: #fca5a5; }
-  .r-orange { color: #fdba74; }
-  .r-blue   { color: #93c5fd; }
-  .r-yellow { color: #fde68a; }
-  .r-purple { color: #c4b5fd; }
-
-  .ac-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-
+  .ac-check { width:15px; height:15px; border:2px solid #374151; border-radius:4px; flex-shrink:0; margin-top:2px; }
+  .ac-body { flex:1; min-width:0; }
+  .ac-action { font-size:13px; font-weight:600; color:var(--text); margin-bottom:2px; line-height:1.5; }
+  .ac-target { font-size:11px; color:var(--text2); margin-bottom:2px; }
+  .ac-risk { font-size:11px; line-height:1.5; }
+  .r-red { color:#fca5a5; } .r-orange { color:#fdba74; } .r-blue { color:#93c5fd; }
+  .r-yellow { color:#fde68a; } .r-purple { color:#c4b5fd; }
+  .ac-right { flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
   .wait-chip {
-    display: inline-flex; align-items: center; gap: 4px;
-    background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.25);
-    border-radius: 5px; padding: 3px 8px; font-size: 10px; font-weight: 600; color: #93c5fd; margin-top: 4px;
+    display:inline-flex; align-items:center; gap:4px;
+    background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.25);
+    border-radius:5px; padding:3px 8px; font-size:10px; font-weight:600; color:#93c5fd; margin-top:3px;
   }
 
-  /* COLLAPSE */
-  .collapse { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  /* ── COLLAPSE ── */
+  .collapse { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
   .collapse-btn {
-    width: 100%; display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; background: none; border: none; cursor: pointer;
-    color: var(--text); font-size: 13px; font-weight: 600; font-family: var(--font);
-    transition: background 0.15s;
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 15px; background:none; border:none; cursor:pointer;
+    color:var(--text); font-size:13px; font-weight:600; font-family:var(--font); transition:background .15s;
   }
-  .collapse-btn:hover { background: var(--surface2); }
-  .collapse-btn .cl { display: flex; align-items: center; gap: 8px; }
-  .collapse-btn .cl .sub { font-size: 12px; color: var(--text2); font-weight: 400; }
-  .caret { font-size: 9px; color: var(--text3); transition: transform 0.2s; }
-  .collapse-btn.open .caret { transform: rotate(180deg); }
-  .collapse-content { display: none; border-top: 1px solid var(--border); padding: 14px 16px; }
-  .collapse-content.open { display: block; }
+  .collapse-btn:hover { background:var(--surface2); }
+  .collapse-btn .cl { display:flex; align-items:center; gap:8px; }
+  .collapse-btn .sub { font-size:12px; color:var(--text2); font-weight:400; }
+  .caret { font-size:9px; color:var(--text3); transition:transform .2s; }
+  .collapse-btn.open .caret { transform:rotate(180deg); }
+  .collapse-content { display:none; border-top:1px solid var(--border); padding:12px 15px; }
+  .collapse-content.open { display:block; }
+  .oh-list { display:flex; flex-direction:column; gap:6px; }
+  .oh-item { display:flex; align-items:flex-start; gap:9px; padding:8px 11px; background:var(--surface2); border-radius:8px; }
+  .oh-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+  .oh-title { font-size:12px; font-weight:600; color:var(--text); margin-bottom:2px; }
+  .oh-note { font-size:11px; color:var(--text2); line-height:1.5; }
 
-  .oh-list { display: flex; flex-direction: column; gap: 7px; }
-  .oh-item {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 9px 12px; background: var(--surface2); border-radius: 8px;
-  }
-  .oh-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
-  .oh-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
-  .oh-note { font-size: 11px; color: var(--text2); line-height: 1.5; }
-
-  .nmi-list { display: flex; flex-direction: column; gap: 6px; }
-  .nmi-item {
-    display: flex; align-items: flex-start; gap: 8px;
-    padding: 8px 12px; background: var(--surface2); border-radius: 8px;
-    font-size: 12px; color: var(--text2); line-height: 1.5;
-  }
-
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:#374151; border-radius:10px; }
 </style>
 </head>
 <body>
-<div class="shell">
 
+<div id="app">
   <header class="topbar">
     <div class="topbar-left">
       <span class="topbar-logo">📋 PM/PO Daily Insight</span>
-      <span class="topbar-sep">—</span>
-      <span class="topbar-date">Thứ Ba, 09/06/2026 · Sprint 56</span>
+      <span style="color:var(--text3)">—</span>
+      <span class="topbar-date" id="today-label"></span>
     </div>
-    <div class="mood-chip">⚠️ Cần kiểm soát</div>
+    <div class="topbar-right">
+      <span class="mood-chip" id="mood-chip">⏳ Chưa có dữ liệu</span>
+      <button class="import-btn" id="import-btn" onclick="document.getElementById('file-input').click()">
+        📂 Import Excel
+      </button>
+      <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+    </div>
   </header>
 
-  <div class="body">
+  <!-- EMPTY STATE -->
+  <div class="dropzone" id="dropzone">
+    <div class="dropzone-icon">📊</div>
+    <h2>Kéo thả file Excel vào đây</h2>
+    <p>Hoặc nhấn nút <strong>Import Excel</strong> ở góc trên phải<br>để chọn file <code>Tracking-Task.xlsx</code></p>
+    <div class="dropzone-hint">Sheet cần có: "Kanban carry-over"</div>
+  </div>
 
-    <!-- LEFT: FOCUS SIDEBAR -->
-    <aside class="focus-col">
-      <div class="focus-label">Ưu tiên hôm nay</div>
-
-      <div class="focus-hero">
-        <div class="hero-rank">🔴 #1 · URGENT · QUÁ HẠN 12 NGÀY</div>
-        <div class="hero-title">Follow-up PO payment — yêu cầu flow & bản define IPOS</div>
-        <div class="hero-note">Sound box đang chờ PO payment để chốt flow hệ thống và API ticket. Không unblock hôm nay = block dev sprint 56.</div>
-        <div class="overdue-badge">⚠️ Quá hạn từ 28/05/2026</div>
-      </div>
-
-      <div class="pq-card c-orange">
-        <div class="pq-num">#2</div>
-        <div class="pq-body">
-          <div class="pq-title">Check design & lên card [Bank] Tra cứu</div>
-          <div class="pq-sub">Hoàn thành để dev có task sprint</div>
-          <div class="pq-meta"><span class="soon-tag">⏰ Deadline 12/06 · còn 3 ngày</span></div>
-        </div>
-      </div>
-
-      <div class="pq-card c-yellow">
-        <div class="pq-num">#3</div>
-        <div class="pq-body">
-          <div class="pq-title">Breakdown AI workflow nhận yêu cầu</div>
-          <div class="pq-sub">Lên tiêu chí AI phân loại · outcome tháng 6</div>
-          <div class="pq-meta"><span class="tag tag-red">Urgent · ~3 tuần còn lại</span></div>
-        </div>
-      </div>
-
-      <div class="pq-card c-yellow">
-        <div class="pq-num">#4</div>
-        <div class="pq-body">
-          <div class="pq-title">Làm rõ next step QA Bot với stakeholder</div>
-          <div class="pq-sub">Urgent nhưng chưa xác định được bước tiếp theo</div>
-          <div class="pq-meta"><span class="tag tag-yellow">Cần làm rõ ngay</span></div>
-        </div>
-      </div>
-
-      <div class="pq-card c-blue">
-        <div class="pq-num">#5</div>
-        <div class="pq-body">
-          <div class="pq-title">Xác định scope Docs Hướng xử lý</div>
-          <div class="pq-sub">In Progress nhưng không có action & không có người phụ trách</div>
-          <div class="pq-meta"><span class="tag tag-gray">⚪ Need More Info</span></div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- RIGHT: MAIN -->
-    <main class="main-panel">
-
-      <!-- STAT ROW -->
-      <div class="stat-row">
-        <div class="stat"><div class="s-emoji">🔴</div><div class="s-num" style="color:#ef4444">2</div><div class="s-label">Urgent</div></div>
-        <div class="stat"><div class="s-emoji">🟠</div><div class="s-num" style="color:#f97316">5</div><div class="s-label">In progress</div></div>
-        <div class="stat"><div class="s-emoji">🟡</div><div class="s-num" style="color:#fbbf24">0</div><div class="s-label">Cần làm rõ</div></div>
-        <div class="stat"><div class="s-emoji">🔵</div><div class="s-num" style="color:#60a5fa">1</div><div class="s-label">Waiting</div></div>
-        <div class="stat"><div class="s-emoji">🟣</div><div class="s-num" style="color:#a78bfa">6</div><div class="s-label">On hold</div></div>
-        <div class="stat"><div class="s-emoji">⚪</div><div class="s-num" style="color:#6b7280">2</div><div class="s-label">Need Info</div></div>
-      </div>
-
-      <!-- URGENT -->
-      <div>
-        <div class="sec-head">
-          <span>🔴</span><h2 style="color:#ef4444">Cần làm ngay hôm nay</h2>
-          <span class="sec-count">3 tasks</span><div class="sec-line"></div>
-        </div>
-        <div class="action-stack">
-
-          <div class="ac red">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Follow-up PO payment — yêu cầu gửi lại flow và bản define</div>
-              <div class="ac-target">IPOS – Sound box · tích hợp CRM + IPOS, cần chốt flow hệ thống & API ticket</div>
-              <div class="ac-risk r-red">Không unblock hôm nay → tiếp tục block dev sprint 56</div>
-              <div class="wait-chip">🔵 Đang chờ PO payment</div>
-            </div>
-            <div class="ac-right"><span class="tag tag-red">⚠️ QUÁ HẠN 28/05</span></div>
-          </div>
-
-          <div class="ac red">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Breakdown task & lên tiêu chí AI đánh giá / phân loại</div>
-              <div class="ac-target">AI workflow nhận yêu cầu · outcome cần có trong tháng 6</div>
-              <div class="ac-risk r-red">Không breakdown ngay = không deliver được trong tháng 6 (~3 tuần còn lại)</div>
-            </div>
-            <div class="ac-right"><span class="tag tag-red">Urgent · T6/2026</span></div>
-          </div>
-
-          <div class="ac red">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Ngồi lại với stakeholder — làm rõ next step QA Bot</div>
-              <div class="ac-target">QA Bot · bot chấm điểm CS, CS có quyền khiếu nại nếu bot sai, QA manual chấm lại</div>
-              <div class="ac-risk r-red">Task đang Urgent nhưng chưa biết bước tiếp theo → không thể bắt đầu bất kỳ thứ gì</div>
-            </div>
-            <div class="ac-right"><span class="tag tag-red">Urgent</span></div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- IN PROGRESS -->
-      <div>
-        <div class="sec-head">
-          <span>🟠</span><h2 style="color:#f97316">Đang chạy — cần đẩy tiếp</h2>
-          <span class="sec-count">5 tasks</span><div class="sec-line"></div>
-        </div>
-        <div class="action-stack">
-
-          <div class="ac orange">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Check design và lên card cho bank</div>
-              <div class="ac-target">[Bank] Tra cứu lịch sử trạng thái nguồn tiền · Bank–CRM Data Mapping</div>
-              <div class="ac-risk r-orange">Trễ card = dev không có task sprint, ảnh hưởng velocity</div>
-            </div>
-            <div class="ac-right"><span class="soon-tag">⏰ 12/06 · 3 ngày</span></div>
-          </div>
-
-          <div class="ac orange">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Xác định đang ở bước nào và ai phụ trách</div>
-              <div class="ac-target">Docs cho Hướng xử lý · [CX Product][CRM] Undocumented Rules</div>
-              <div class="ac-risk r-orange">In Progress không có next action → nguy cơ trôi hoặc duplicate</div>
-              <span class="tag tag-gray" style="display:inline-block;margin-top:5px">⚪ Need More Info</span>
-            </div>
-            <div class="ac-right"></div>
-          </div>
-
-          <div class="ac orange">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Đọc thông tin tra soát & viết kế hoạch làm việc</div>
-              <div class="ac-target">[Bank] Tra soát</div>
-              <div class="ac-risk r-orange">Không có kế hoạch = không có timeline để theo dõi</div>
-            </div>
-            <div class="ac-right"></div>
-          </div>
-
-          <div class="ac orange">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Tiến hành UX design — bổ sung vào card sau khi xong</div>
-              <div class="ac-target">UX tính năng cập nhật level màn hình xử lý · CS chỉnh level và hướng xử lý cùng lúc</div>
-              <div class="ac-risk r-orange">Không có design = dev implement sai UX intent</div>
-            </div>
-            <div class="ac-right"></div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- WAITING -->
-      <div>
-        <div class="sec-head">
-          <span>🔵</span><h2 style="color:#60a5fa">Đang chờ — cần follow-up</h2>
-          <span class="sec-count">2 items</span><div class="sec-line"></div>
-        </div>
-        <div class="action-stack">
-
-          <div class="ac blue">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Chờ PO payment gửi flow và bản define</div>
-              <div class="ac-target">IPOS – Sound box</div>
-              <div class="ac-risk r-red">Đã qua deadline 28/05 → nếu chưa nhận được hôm nay cần escalate</div>
-            </div>
-            <div class="ac-right"><span class="tag tag-red">QUÁ HẠN</span></div>
-          </div>
-
-          <div class="ac blue">
-            <span class="ac-check"></span>
-            <div class="ac-body">
-              <div class="ac-action">Chờ tính năng kiểm tra mã FAQ lên UAT</div>
-              <div class="ac-target">Bổ sung docs FAQ · anh Việt đã demo, chờ UAT để viết docs hoàn chỉnh</div>
-              <div class="ac-risk r-blue">UAT xong mà không có docs kịp → CS/QA không có tài liệu tham chiếu</div>
-            </div>
-            <div class="ac-right"><span class="tag tag-blue">Chờ UAT</span></div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- ON HOLD (collapsed) -->
-      <div class="collapse">
-        <button class="collapse-btn" onclick="toggle(this)">
-          <span class="cl">🟣 <span>On hold</span> <span class="sub">6 tasks · chỉ mở khi cần quyết định</span></span>
-          <span class="caret">▼</span>
-        </button>
-        <div class="collapse-content">
-          <div class="oh-list">
-            <div class="oh-item">
-              <div class="oh-dot" style="background:#a78bfa"></div>
-              <div><div class="oh-title">Phân tích redesign Nút Gửi và Lưu</div><div class="oh-note">5 bước rõ ràng đã có · chưa có deadline · có thể mở lại bất kỳ lúc nào</div></div>
-            </div>
-            <div class="oh-item">
-              <div class="oh-dot" style="background:#a78bfa"></div>
-              <div><div class="oh-title">Hủy ví — phân tích rule</div><div class="oh-note">Team CEE đang phân tích song song · chưa có owner bộ rule</div></div>
-            </div>
-            <div class="oh-item">
-              <div class="oh-dot" style="background:#a78bfa"></div>
-              <div><div class="oh-title">Màn hình call — viết docs</div><div class="oh-note">Cần đọc "Incoming Call – Feature Spec" và làm rõ scope với anh Tài trước</div></div>
-            </div>
-            <div class="oh-item">
-              <div class="oh-dot" style="background:#a78bfa"></div>
-              <div><div class="oh-title">Bổ sung Merchant Tag màn hình Call</div><div class="oh-note">Phượng đã lên ticket dev CSP-6126 · theo dõi dev triển khai</div></div>
-            </div>
-            <div class="oh-item">
-              <div class="oh-dot" style="background:#60a5fa"></div>
-              <div><div class="oh-title">Bổ sung docs FAQ kiểm tra mã</div><div class="oh-note">🔵 Đang chờ UAT · viết docs sau khi UAT sẵn sàng</div></div>
-            </div>
-            <div class="oh-item">
-              <div class="oh-dot" style="background:#6b7280"></div>
-              <div><div class="oh-title">[FAQ][Help center] Merchant & User — refID</div><div class="oh-note">⚪ Chưa đủ thông tin để xác định action · cần làm rõ trước khi mở lại</div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- NEED MORE INFO (collapsed) -->
-      <div class="collapse">
-        <button class="collapse-btn" onclick="toggle(this)">
-          <span class="cl">⚪ <span>Need More Info</span> <span class="sub">2 tasks · chưa đủ dữ liệu để hành động</span></span>
-          <span class="caret">▼</span>
-        </button>
-        <div class="collapse-content">
-          <div class="nmi-list">
-            <div class="nmi-item">⚪ <div><strong style="color:var(--text)">Docs cho Hướng xử lý</strong> — không có next action, không có người phụ trách. Cần hỏi: đang ở bước nào?</div></div>
-            <div class="nmi-item">⚪ <div><strong style="color:var(--text)">[FAQ] Merchant & User — refID</strong> — không có next action, không có waiting for. Cần hỏi: có cần mở lại không?</div></div>
-          </div>
-        </div>
-      </div>
-
-    </main>
+  <!-- DASHBOARD (ẩn cho đến khi có data) -->
+  <div class="body" id="dashboard" style="display:none">
+    <aside class="focus-col" id="sidebar"></aside>
+    <main class="main-panel" id="main-panel"></main>
   </div>
 </div>
 
 <script>
+// ── UTILS ──────────────────────────────────────────────────────────────────
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+function fmtDate(d) {
+  if (!d) return null;
+  return d.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+function deadlineStatus(d) {
+  if (!d) return null;
+  const t = new Date(d); t.setHours(0,0,0,0);
+  const diff = Math.round((t - TODAY) / 86400000);
+  if (diff < 0) return { type:'overdue', diff: Math.abs(diff), label:`Quá hạn ${Math.abs(diff)} ngày` };
+  if (diff === 0) return { type:'today', diff:0, label:'Hôm nay!' };
+  if (diff <= 5) return { type:'soon', diff, label:`Còn ${diff} ngày (${fmtDate(t)})` };
+  return { type:'ok', diff, label: fmtDate(t) };
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function getStatusGroup(s) {
+  s = (s||'').trim();
+  if (s === '00.Urgent') return 'urgent';
+  if (s === '01.In progress') return 'inprogress';
+  if (s === '02.Cần làm rõ') return 'clarify';
+  if (s === '04.Waiting') return 'waiting';
+  if (s === '04.On Hold' || s === 'On Hold') return 'onhold';
+  if (s === 'Done' || s === 'Close') return 'done';
+  return 'needinfo';
+}
+
+function priorityOf(g) {
+  return {urgent:0, inprogress:1, clarify:2, waiting:3, onhold:4, done:99, needinfo:5}[g] ?? 99;
+}
+
+function needsMoreInfo(t) {
+  const na = (t.nextAction||'').toLowerCase();
+  return !t.nextAction || na.includes('need more info') || na.includes('cần biết') || na.includes('chưa rõ');
+}
+
+// ── PARSE EXCEL ────────────────────────────────────────────────────────────
+function parseExcel(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('kanban')) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+
+      // Find header row
+      let headerIdx = rows.findIndex(r => r && String(r[0]||'').toLowerCase().includes('task'));
+      if (headerIdx < 0) headerIdx = 0;
+
+      const tasks = rows.slice(headerIdx + 1)
+        .filter(r => r && r[0])
+        .map(r => {
+          let deadline = null;
+          const dRaw = r[7];
+          if (dRaw) {
+            const d = new Date(dRaw);
+            if (!isNaN(d)) deadline = d;
+          }
+          const status = String(r[2]||'').trim();
+          const hidden = String(r[9]||'').trim().toLowerCase();
+          const group = getStatusGroup(status);
+          const nmi = (group === 'inprogress' || group === 'urgent') && !r[5];
+
+          return {
+            task:       String(r[0]||'').trim(),
+            workType:   String(r[1]||'').trim(),
+            status,
+            group,
+            description: String(r[3]||'').trim(),
+            waitingFor: String(r[4]||'').trim(),
+            nextAction: String(r[5]||'').trim(),
+            note:       String(r[6]||'').trim(),
+            deadline,
+            hidden,
+            needMoreInfo: nmi,
+          };
+        });
+
+      renderDashboard(tasks, sheetName, file.name);
+
+    } catch(err) {
+      alert('Lỗi đọc file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function renderDashboard(tasks, sheetName, fileName) {
+  document.getElementById('dropzone').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'grid';
+
+  const btn = document.getElementById('import-btn');
+  btn.className = 'import-btn has-file';
+  btn.innerHTML = `✅ ${esc(fileName)}`;
+
+  const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
+
+  renderMood(active);
+  renderSidebar(active);
+  renderMain(active);
+}
+
+function renderMood(tasks) {
+  const urgentCount  = tasks.filter(t => t.group === 'urgent').length;
+  const waitingCount = tasks.filter(t => t.group === 'waiting' || (t.waitingFor && t.group !== 'done')).length;
+  const onholdCount  = tasks.filter(t => t.group === 'onhold').length;
+  const overdue      = tasks.filter(t => t.deadline && deadlineStatus(t.deadline)?.type === 'overdue').length;
+  const nmi          = tasks.filter(t => t.needMoreInfo).length;
+
+  let mood, cls;
+  if (urgentCount >= 2 || overdue >= 1) { mood = '🔥 Căng'; cls = 'red'; }
+  else if (waitingCount >= 3 || onholdCount >= 4) { mood = '🚧 Bị block'; cls = 'blue'; }
+  else if (nmi >= 3) { mood = '❓ Mơ hồ'; cls = 'gray'; }
+  else if (urgentCount === 0 && onholdCount <= 2) { mood = '✅ Ổn định'; cls = 'green'; }
+  else { mood = '⚠️ Cần kiểm soát'; cls = ''; }
+
+  const chip = document.getElementById('mood-chip');
+  chip.textContent = mood;
+  chip.className = 'mood-chip ' + cls;
+}
+
+function deadlineBadge(t) {
+  if (!t.deadline) return '';
+  const ds = deadlineStatus(t.deadline);
+  if (ds.type === 'overdue') return `<span class="tag tag-red">⚠️ ${esc(ds.label)}</span>`;
+  if (ds.type === 'today')   return `<span class="tag tag-red">🔴 Hôm nay!</span>`;
+  if (ds.type === 'soon')    return `<span class="soon-tag">⏰ ${esc(ds.label)}</span>`;
+  return `<span class="tag tag-gray">${esc(ds.label)}</span>`;
+}
+
+// ── SIDEBAR ────────────────────────────────────────────────────────────────
+function renderSidebar(tasks) {
+  const urgent = tasks.filter(t => t.group === 'urgent');
+  const inprog = tasks.filter(t => t.group === 'inprogress');
+
+  // Sort: overdue first, then soon, then no deadline
+  const score = t => {
+    if (!t.deadline) return 999;
+    const ds = deadlineStatus(t.deadline);
+    if (ds.type === 'overdue') return -ds.diff;
+    return ds.diff;
+  };
+
+  const top = [...urgent, ...inprog].sort((a,b) => score(a) - score(b)).slice(0,5);
+
+  let html = `<div class="focus-label">Ưu tiên hôm nay</div>`;
+
+  top.forEach((t, i) => {
+    const ds = t.deadline ? deadlineStatus(t.deadline) : null;
+    if (i === 0) {
+      html += `
+        <div class="focus-hero">
+          <div class="hero-rank">🔴 #1 · ${esc(t.status)}${ds?.type==='overdue' ? ` · QUÁ HẠN ${ds.diff} NGÀY` : ''}</div>
+          <div class="hero-title">${esc(t.nextAction || t.task)}</div>
+          <div class="hero-note">${esc(t.task)}${t.description ? ` — ${t.description.slice(0,80)}` : ''}</div>
+          ${ds?.type==='overdue' ? `<div class="overdue-badge">⚠️ Quá hạn từ ${fmtDate(t.deadline)}</div>` : ''}
+          ${ds?.type==='today'   ? `<div class="overdue-badge" style="background:#f97316">🔴 Deadline hôm nay!</div>` : ''}
+          ${ds?.type==='soon'    ? `<div class="overdue-badge" style="background:#d97706">⏰ ${esc(ds.label)}</div>` : ''}
+        </div>`;
+    } else {
+      const colorCls = t.group === 'urgent' ? 'c-yellow' : (ds?.type==='overdue'||ds?.type==='today') ? 'c-orange' : 'c-blue';
+      const tagHtml = ds ? (ds.type==='overdue'||ds.type==='today' ? `<span class="tag tag-red">${esc(ds.label)}</span>` : `<span class="soon-tag">⏰ ${esc(ds.label)}</span>`) : (t.group==='urgent' ? `<span class="tag tag-red">Urgent</span>` : '');
+      html += `
+        <div class="pq-card ${colorCls}">
+          <div class="pq-num">#${i+1}</div>
+          <div class="pq-body">
+            <div class="pq-title">${esc(t.nextAction || t.task)}</div>
+            <div class="pq-sub">${esc(t.task)}</div>
+            ${tagHtml ? `<div class="pq-meta">${tagHtml}</div>` : ''}
+          </div>
+        </div>`;
+    }
+  });
+
+  if (top.length === 0) {
+    html += `<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px 0">🟢 Không có task ưu tiên</div>`;
+  }
+
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+// ── MAIN PANEL ─────────────────────────────────────────────────────────────
+function renderMain(tasks) {
+  const byGroup = g => tasks.filter(t => t.group === g);
+  const urgent   = byGroup('urgent');
+  const inprog   = byGroup('inprogress');
+  const clarify  = byGroup('clarify');
+  const waiting  = byGroup('waiting').concat(tasks.filter(t => t.waitingFor && t.group !== 'waiting' && t.group !== 'done'));
+  const onhold   = byGroup('onhold');
+  const nmi      = tasks.filter(t => t.needMoreInfo && t.group !== 'urgent');
+
+  // Stat counts
+  const allTasks = tasks;
+  const counts = {
+    urgent:   allTasks.filter(t=>t.group==='urgent').length,
+    inprog:   allTasks.filter(t=>t.group==='inprogress').length,
+    clarify:  allTasks.filter(t=>t.group==='clarify').length,
+    waiting:  allTasks.filter(t=>t.group==='waiting').length,
+    onhold:   allTasks.filter(t=>t.group==='onhold').length,
+    nmi:      allTasks.filter(t=>t.needMoreInfo).length,
+  };
+
+  let html = '';
+
+  // STAT ROW
+  html += `
+    <div class="stat-row">
+      <div class="stat"><div class="s-emoji">🔴</div><div class="s-num" style="color:#ef4444">${counts.urgent}</div><div class="s-label">Urgent</div></div>
+      <div class="stat"><div class="s-emoji">🟠</div><div class="s-num" style="color:#f97316">${counts.inprog}</div><div class="s-label">In progress</div></div>
+      <div class="stat"><div class="s-emoji">🟡</div><div class="s-num" style="color:#fbbf24">${counts.clarify}</div><div class="s-label">Cần làm rõ</div></div>
+      <div class="stat"><div class="s-emoji">🔵</div><div class="s-num" style="color:#60a5fa">${counts.waiting}</div><div class="s-label">Waiting</div></div>
+      <div class="stat"><div class="s-emoji">🟣</div><div class="s-num" style="color:#a78bfa">${counts.onhold}</div><div class="s-label">On hold</div></div>
+      <div class="stat"><div class="s-emoji">⚪</div><div class="s-num" style="color:#6b7280">${counts.nmi}</div><div class="s-label">Need Info</div></div>
+    </div>`;
+
+  // URGENT SECTION
+  const urgentAll = [...urgent, ...inprog.filter(t => t.deadline && deadlineStatus(t.deadline)?.type === 'overdue')];
+  if (urgentAll.length) {
+    html += `<div>
+      <div class="sec-head"><span>🔴</span><h2 style="color:#ef4444">Cần làm ngay hôm nay</h2><span class="sec-count">${urgentAll.length} tasks</span><div class="sec-line"></div></div>
+      <div class="action-stack">`;
+    urgentAll.forEach(t => { html += renderAC(t, 'red'); });
+    html += `</div></div>`;
+  }
+
+  // IN PROGRESS (non-overdue)
+  const inprogNormal = inprog.filter(t => !t.deadline || deadlineStatus(t.deadline)?.type !== 'overdue');
+  if (inprogNormal.length) {
+    html += `<div>
+      <div class="sec-head"><span>🟠</span><h2 style="color:#f97316">Đang chạy — cần đẩy tiếp</h2><span class="sec-count">${inprogNormal.length} tasks</span><div class="sec-line"></div></div>
+      <div class="action-stack">`;
+    inprogNormal.forEach(t => { html += renderAC(t, 'orange'); });
+    html += `</div></div>`;
+  }
+
+  // WAITING
+  const waitUniq = [...new Map(waiting.map(t=>[t.task,t])).values()];
+  if (waitUniq.length) {
+    html += `<div>
+      <div class="sec-head"><span>🔵</span><h2 style="color:#60a5fa">Đang chờ — cần follow-up</h2><span class="sec-count">${waitUniq.length} items</span><div class="sec-line"></div></div>
+      <div class="action-stack">`;
+    waitUniq.forEach(t => { html += renderAC(t, 'blue'); });
+    html += `</div></div>`;
+  }
+
+  // CLARIFY
+  if (clarify.length) {
+    html += `<div>
+      <div class="sec-head"><span>🟡</span><h2 style="color:#fbbf24">Cần làm rõ</h2><span class="sec-count">${clarify.length} tasks</span><div class="sec-line"></div></div>
+      <div class="action-stack">`;
+    clarify.forEach(t => { html += renderAC(t, 'yellow'); });
+    html += `</div></div>`;
+  }
+
+  // ON HOLD (collapsed)
+  if (onhold.length) {
+    html += `
+      <div class="collapse">
+        <button class="collapse-btn" onclick="toggle(this)">
+          <span class="cl">🟣 <span>On hold</span> <span class="sub">${onhold.length} tasks · chỉ mở khi cần quyết định</span></span>
+          <span class="caret">▼</span>
+        </button>
+        <div class="collapse-content">
+          <div class="oh-list">`;
+    onhold.forEach(t => {
+      const dotColor = t.waitingFor ? '#60a5fa' : '#a78bfa';
+      html += `
+            <div class="oh-item">
+              <div class="oh-dot" style="background:${dotColor}"></div>
+              <div>
+                <div class="oh-title">${esc(t.task)}</div>
+                <div class="oh-note">${esc(t.nextAction || t.description || 'Chưa có next action')}${t.waitingFor ? ` · 🔵 Chờ: ${esc(t.waitingFor)}` : ''}</div>
+              </div>
+            </div>`;
+    });
+    html += `</div></div></div>`;
+  }
+
+  // NEED MORE INFO (collapsed)
+  if (nmi.length) {
+    html += `
+      <div class="collapse">
+        <button class="collapse-btn" onclick="toggle(this)">
+          <span class="cl">⚪ <span>Need More Info</span> <span class="sub">${nmi.length} tasks · chưa đủ dữ liệu để hành động</span></span>
+          <span class="caret">▼</span>
+        </button>
+        <div class="collapse-content">
+          <div class="oh-list">`;
+    nmi.forEach(t => {
+      html += `
+            <div class="oh-item">
+              <div class="oh-dot" style="background:#6b7280"></div>
+              <div>
+                <div class="oh-title">${esc(t.task)}</div>
+                <div class="oh-note">Không có next action rõ ràng${t.waitingFor ? ` · Chờ: ${esc(t.waitingFor)}` : ''}</div>
+              </div>
+            </div>`;
+    });
+    html += `</div></div></div>`;
+  }
+
+  document.getElementById('main-panel').innerHTML = html;
+}
+
+function renderAC(t, color) {
+  const ds = t.deadline ? deadlineStatus(t.deadline) : null;
+  const riskColor = { red:'r-red', orange:'r-orange', blue:'r-blue', yellow:'r-yellow', purple:'r-purple' }[color] || 'r-orange';
+  const risk = buildRisk(t, ds);
+
+  return `
+    <div class="ac ${color}">
+      <span class="ac-check"></span>
+      <div class="ac-body">
+        <div class="ac-action">${esc(t.nextAction || '❓ Chưa có next action')}</div>
+        <div class="ac-target">${esc(t.task)}${t.description ? ` · ${t.description.slice(0,80)}` : ''}</div>
+        ${risk ? `<div class="ac-risk ${riskColor}">${esc(risk)}</div>` : ''}
+        ${t.waitingFor ? `<div class="wait-chip">🔵 Chờ: ${esc(t.waitingFor)}</div>` : ''}
+      </div>
+      <div class="ac-right">${deadlineBadge(t)}</div>
+    </div>`;
+}
+
+function buildRisk(t, ds) {
+  if (ds?.type === 'overdue') return `Deadline đã quá ${ds.diff} ngày — cần xử lý ngay hôm nay`;
+  if (ds?.type === 'today')   return `Deadline hôm nay — phải hoàn thành trước cuối ngày`;
+  if (ds?.type === 'soon')    return `Deadline còn ${ds.diff} ngày — không làm kịp sẽ ảnh hưởng sprint`;
+  if (!t.nextAction)          return `Chưa có next action — nguy cơ trôi task`;
+  if (t.waitingFor && !t.nextAction) return `Đang chờ phản hồi — nếu không follow-up sẽ tiếp tục block`;
+  return '';
+}
+
+// ── EVENTS ─────────────────────────────────────────────────────────────────
 function toggle(btn) {
   btn.classList.toggle('open');
   btn.nextElementSibling.classList.toggle('open');
 }
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) parseExcel(e.target.files[0]);
+});
+
+// Drag & drop
+const dz = document.getElementById('dropzone');
+document.body.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+document.body.addEventListener('dragleave', () => dz.classList.remove('drag'));
+document.body.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && (f.name.endsWith('.xlsx')||f.name.endsWith('.xls'))) parseExcel(f);
+});
+dz.addEventListener('click', () => document.getElementById('file-input').click());
+
+// Date label
+const d = new Date();
+const days = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+document.getElementById('today-label').textContent =
+  `${days[d.getDay()]}, ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 </script>
 </body>
 </html>
