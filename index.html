@@ -932,10 +932,14 @@ function mapRow(r) {
 let _taskStore = [];
 let _currentFileName = '';
 
+function saveTasksToStorage() {
+  try { localStorage.setItem('_taskStore', JSON.stringify(_taskStore)); localStorage.setItem('_fileName', _currentFileName); } catch {}
+}
+
 function renderDashboard(tasks, sheetName, fileName) {
   _taskStore = tasks;
   _currentFileName = fileName || '';
-  driveAutoSave();
+  saveTasksToStorage();
   document.getElementById('dropzone').style.display  = 'none';
   document.getElementById('dashboard').style.display = 'grid';
 
@@ -1189,6 +1193,7 @@ function markDone(idx) {
   if (!t) return;
   t.status = 'Done'; t.group = 'done';
   gsWriteBack({ action:'updateStatus', task:t.task, status:'Done' });
+  saveTasksToStorage();
   showToast(`✅ Đã đánh dấu Done: ${t.task}`, 'success');
   // Re-render
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
@@ -1333,7 +1338,7 @@ function drawerUpdateStatus(idx, newStatus) {
   if (!t) return;
   t.status = newStatus; t.group = getStatusGroup(newStatus);
   gsWriteBack({ action:'updateStatus', task:t.task, status:newStatus });
-  driveAutoSave();
+  saveTasksToStorage();
   showToast(`✏️ Đã cập nhật: ${t.task} → ${newStatus}`, 'success');
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
   renderMood(active); renderSidebar(active); renderMain(active);
@@ -1685,6 +1690,16 @@ window.addEventListener('DOMContentLoaded', () => {
   if (_gsConfig.scriptUrl) {
     document.getElementById('gs-script-url').value = _gsConfig.scriptUrl;
   }
+
+  // Restore tasks from localStorage on load
+  try {
+    const saved = localStorage.getItem('_taskStore');
+    const fileName = localStorage.getItem('_fileName') || 'Local';
+    if (saved) {
+      const tasks = JSON.parse(saved);
+      if (tasks?.length) renderDashboard(tasks, 'Local', fileName);
+    }
+  } catch {}
 });
 
 function extractSheetId(urlOrId) {
