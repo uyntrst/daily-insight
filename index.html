@@ -1358,7 +1358,11 @@ function interruptGet(name) {
   try { return JSON.parse(localStorage.getItem(interruptKey(name))); } catch { return null; }
 }
 function interruptSave(name, data) {
-  localStorage.setItem(interruptKey(name), JSON.stringify({ ...data, ts: new Date().toISOString() }));
+  const entry = { ...data, ts: new Date().toISOString() };
+  localStorage.setItem(interruptKey(name), JSON.stringify(entry));
+  if (_gsConfig.scriptUrl) {
+    gsWriteBack({ action: 'saveInterrupt', sheetId: extractSheetId(_gsConfig.sheetUrl), taskId: name, ...entry });
+  }
 }
 function interruptClear(name) {
   localStorage.removeItem(interruptKey(name));
@@ -1532,6 +1536,9 @@ function wlSaveLog(taskId, entry) {
   logs.unshift(entry);
   localStorage.setItem(wlKey(taskId), JSON.stringify(logs));
   driveAutoSave();
+  if (_gsConfig.scriptUrl) {
+    gsWriteBack({ action: 'addWorkLog', sheetId: extractSheetId(_gsConfig.sheetUrl), taskId, entry });
+  }
 }
 
 function wlBuildPrompt(t) {
@@ -1750,6 +1757,7 @@ async function connectGSheets() {
     renderDashboard(tasks, sheetName, 'Google Sheets');
     showToast(`✅ Đã load ${tasks.length} tasks từ Google Sheets`, 'success');
     closeGsPanel();
+    gsLoadStoredData();
 
     // Auto-sync every 5 min
     clearInterval(_gsConfig._interval);
@@ -1804,6 +1812,28 @@ async function quickConnectGs() {
   await connectGSheets();
 }
 
+// Load stored worklogs + interrupts from Sheets via Apps Script doGet
+async function gsLoadStoredData() {
+  if (!_gsConfig.scriptUrl || !_gsConfig.sheetUrl) return;
+  try {
+    const sheetId = extractSheetId(_gsConfig.sheetUrl);
+    const resp = await fetch(`${_gsConfig.scriptUrl}?sheetId=${sheetId}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.worklogs) Object.entries(data.worklogs).forEach(([k,v]) => {
+      if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(v));
+    });
+    if (data.interrupts) Object.entries(data.interrupts).forEach(([k,v]) => {
+      if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(v));
+    });
+    const wCount = Object.keys(data.worklogs||{}).length;
+    const iCount = Object.keys(data.interrupts||{}).length;
+    if (wCount + iCount > 0) showToast(`☁️ Đã khôi phục ${wCount} worklogs, ${iCount} interrupts từ Sheets`, 'success', 4000);
+  } catch(err) {
+    console.warn('gsLoadStoredData failed:', err);
+  }
+}
+
 // Write-back via Apps Script
 async function gsWriteBack(payload) {
   if (!_gsConfig.scriptUrl) return;  // no script configured — silent skip
@@ -1821,49 +1851,135 @@ async function gsWriteBack(payload) {
 }
 
 function showAppsScriptHelp() {
-  const code = `/* ── Dán vào Google Apps Script > Deploy > Web App ──
-   Cài đặt: "Execute as: Me", "Who has access: Anyone" */
+  const code = `/* ── Apps Script — paste toàn bộ vào Apps Script Editor ──
+   Deploy → New deployment → Web App
+   Execute as: Me  |  Who has access: Anyone  */
 
+// GET: trả về worklogs + interrupts
+function doGet(e) {
+  const sheetId = e.parameter.sheetId;
+  if (!sheetId) return ok({ error: 'No sheetId' });
+  const ss = SpreadsheetApp.openById(sheetId);
+  const result = { worklogs: {}, interrupts: {} };
+
+  const wlSheet = ss.getSheetByName('WorkLog');
+  if (wlSheet) {
+    const rows = wlSheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      const [taskId, timestamp, note, statusAtTime, nextAction] = rows[i];
+      if (!taskId) continue;
+      const key = 'worklog_' + String(taskId);
+      if (!result.worklogs[key]) result.worklogs[key] = [];
+      result.worklogs[key].push({ timestamp: String(timestamp), note: String(note), statusAtTime: String(statusAtTime||''), nextAction: String(nextAction||'') });
+    }
+  }
+
+  const intrSheet = ss.getSheetByName('Interrupts');
+  if (intrSheet) {
+    const rows = intrSheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      const [taskId, stopping, unfinished, thinking, question, nextAction, ts] = rows[i];
+      if (!taskId) continue;
+      result.interrupts['intr_' + String(taskId).slice(0,80)] =
+        { stopping: String(stopping||''), unfinished: String(unfinished||''), thinking: String(thinking||''), question: String(question||''), nextAction: String(nextAction||''), ts: String(ts||'') };
+    }
+  }
+
+  return ok(result);
+}
+
+// POST: ghi dữ liệu
 function doPost(e) {
   const data = JSON.parse(e.postData.contents);
   const ss = SpreadsheetApp.openById(data.sheetId);
-  const sheetName = data.sheetName || 'Kanban carry-over';
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return ok({ error: 'Sheet not found' });
-
-  const values = sheet.getDataRange().getValues();
 
   if (data.action === 'updateStatus') {
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][0]).trim() === String(data.task).trim()) {
-        sheet.getRange(i + 1, 3).setValue(data.status);
-        break;
+    const sheet = ss.getSheetByName(data.sheetName || 'Kanban carry-over');
+    if (sheet) {
+      const vals = sheet.getDataRange().getValues();
+      for (let i = 1; i < vals.length; i++) {
+        if (String(vals[i][0]).trim() === String(data.task).trim()) {
+          sheet.getRange(i+1, 3).setValue(data.status); break;
+        }
       }
     }
   }
 
   if (data.action === 'updateNextAction') {
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][0]).trim() === String(data.task).trim()) {
-        sheet.getRange(i + 1, 6).setValue(data.nextAction);
-        break;
+    const sheet = ss.getSheetByName(data.sheetName || 'Kanban carry-over');
+    if (sheet) {
+      const vals = sheet.getDataRange().getValues();
+      for (let i = 1; i < vals.length; i++) {
+        if (String(vals[i][0]).trim() === String(data.task).trim()) {
+          sheet.getRange(i+1, 6).setValue(data.nextAction); break;
+        }
       }
     }
   }
 
-  return ContentService
-    .createTextOutput(JSON.stringify({ success: true }))
-    .setMimeType(ContentService.MimeType.JSON);
+  if (data.action === 'addWorkLog') {
+    let sheet = ss.getSheetByName('WorkLog');
+    if (!sheet) {
+      sheet = ss.insertSheet('WorkLog');
+      sheet.appendRow(['taskId','timestamp','note','statusAtTime','nextAction']);
+      sheet.setFrozenRows(1);
+    }
+    const en = data.entry || {};
+    sheet.appendRow([data.taskId, en.timestamp||'', en.note||'', en.statusAtTime||'', en.nextAction||'']);
+  }
+
+  if (data.action === 'saveInterrupt') {
+    let sheet = ss.getSheetByName('Interrupts');
+    if (!sheet) {
+      sheet = ss.insertSheet('Interrupts');
+      sheet.appendRow(['taskId','stopping','unfinished','thinking','question','nextAction','timestamp']);
+      sheet.setFrozenRows(1);
+    }
+    const rows = sheet.getDataRange().getValues();
+    let found = false;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(data.taskId)) {
+        sheet.getRange(i+1,2,1,6).setValues([[data.stopping||'',data.unfinished||'',data.thinking||'',data.question||'',data.nextAction||'',data.ts||'']]);
+        found = true; break;
+      }
+    }
+    if (!found) sheet.appendRow([data.taskId,data.stopping||'',data.unfinished||'',data.thinking||'',data.question||'',data.nextAction||'',data.ts||'']);
+  }
+
+  return ok({ success: true });
 }
 
-function ok(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
+function ok(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }`;
-  alert('Apps Script code:\n\n' + code + '\n\nSau khi Deploy, copy URL vào ô "Apps Script Web App URL".');
-}
 
+  // Show in copyable modal
+  let modal = document.getElementById('apps-script-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'apps-script-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `
+      <div style="background:var(--surface);border-radius:14px;width:min(760px,94vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:14px;font-weight:700;color:var(--text)">📋 Apps Script — copy &amp; deploy</div>
+          <div style="display:flex;gap:8px">
+            <button onclick="navigator.clipboard.writeText(document.getElementById('as-code').value).then(()=>showToast('✅ Đã copy code','success'))" style="padding:7px 14px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">📋 Copy code</button>
+            <button onclick="document.getElementById('apps-script-modal').remove()" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">✕ Đóng</button>
+          </div>
+        </div>
+        <div style="padding:12px 18px;font-size:11px;color:var(--blue-text);background:var(--blue-bg);border-bottom:1px solid var(--blue-border);line-height:1.7">
+          <strong>Deploy:</strong> Google Sheets → Extensions → Apps Script → xóa code cũ → paste → <strong>Deploy → New deployment → Web App</strong> → Execute as: Me · Access: Anyone → Copy URL → dán vào "Apps Script URL" trong app
+        </div>
+        <textarea id="as-code" readonly style="flex:1;padding:16px 18px;font-family:monospace;font-size:11px;border:none;outline:none;resize:none;background:var(--surface2);color:var(--text);line-height:1.6;overflow-y:auto;min-height:300px"></textarea>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', ev => { if (ev.target === modal) modal.remove(); });
+  }
+  document.getElementById('as-code').value = code;
+  document.getElementById('apps-script-modal').style.display = 'flex';
+}
 // ── FILE INPUT / DRAG & DROP ───────────────────────────────────────────────
 document.getElementById('file-input').addEventListener('change', e => {
   if (e.target.files[0]) parseExcel(e.target.files[0]);
