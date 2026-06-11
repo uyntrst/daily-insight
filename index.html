@@ -934,6 +934,7 @@ let _currentFileName = '';
 
 function saveTasksToStorage() {
   try { localStorage.setItem('_taskStore', JSON.stringify(_taskStore)); localStorage.setItem('_fileName', _currentFileName); } catch {}
+  saveTasksToSheets();
 }
 
 function renderDashboard(tasks, sheetName, fileName) {
@@ -1691,6 +1692,12 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('gs-script-url').value = _gsConfig.scriptUrl;
   }
 
+  // Auto-load from Sheets if configured, else fallback to localStorage
+  if (_gsConfig.scriptUrl && _gsConfig.sheetUrl) {
+    gsAutoLoad();
+    return;
+  }
+
   // Restore tasks from localStorage on load
   try {
     const saved = localStorage.getItem('_taskStore');
@@ -1833,6 +1840,33 @@ async function quickConnectGs() {
   await connectGSheets();
 }
 
+// Save all tasks to Sheets
+async function saveTasksToSheets() {
+  if (!_gsConfig.scriptUrl || !_gsConfig.sheetUrl || !_taskStore.length) return;
+  gsWriteBack({ action: 'saveTasks', sheetId: extractSheetId(_gsConfig.sheetUrl), tasks: _taskStore });
+}
+
+// Auto-load tasks + worklogs + interrupts from Sheets on startup
+async function gsAutoLoad() {
+  if (!_gsConfig.scriptUrl || !_gsConfig.sheetUrl) return;
+  try {
+    showToast('⏳ Đang load data từ Sheets…');
+    const sheetId = extractSheetId(_gsConfig.sheetUrl);
+    const resp = await fetch(`${_gsConfig.scriptUrl}?sheetId=${sheetId}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    if (data.tasks?.length) {
+      renderDashboard(data.tasks, _gsConfig.sheetName, 'Google Sheets');
+      showToast(`✅ Đã load ${data.tasks.length} tasks từ Sheets`, 'success');
+    }
+    if (data.worklogs) Object.entries(data.worklogs).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+    if (data.interrupts) Object.entries(data.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+  } catch(err) {
+    console.warn('gsAutoLoad failed:', err);
+  }
+}
+
 // Load stored worklogs + interrupts from Sheets via Apps Script doGet
 async function gsLoadStoredData() {
   if (!_gsConfig.scriptUrl || !_gsConfig.sheetUrl) return;
@@ -1876,13 +1910,26 @@ function showAppsScriptHelp() {
    Deploy → New deployment → Web App
    Execute as: Me  |  Who has access: Anyone  */
 
-// GET: trả về worklogs + interrupts
 function doGet(e) {
   const sheetId = e.parameter.sheetId;
   if (!sheetId) return ok({ error: 'No sheetId' });
   const ss = SpreadsheetApp.openById(sheetId);
-  const result = { worklogs: {}, interrupts: {} };
+  const result = { tasks: [], worklogs: {}, interrupts: {} };
 
+  // Tasks
+  const tSheet = ss.getSheetByName('Tasks');
+  if (tSheet) {
+    const rows = tSheet.getDataRange().getValues();
+    const headers = rows[0];
+    for (let i = 1; i < rows.length; i++) {
+      if (!rows[i][0]) continue;
+      const obj = {};
+      headers.forEach((h, j) => { obj[h] = rows[i][j]; });
+      result.tasks.push(obj);
+    }
+  }
+
+  // WorkLog
   const wlSheet = ss.getSheetByName('WorkLog');
   if (wlSheet) {
     const rows = wlSheet.getDataRange().getValues();
@@ -1895,6 +1942,7 @@ function doGet(e) {
     }
   }
 
+  // Interrupts
   const intrSheet = ss.getSheetByName('Interrupts');
   if (intrSheet) {
     const rows = intrSheet.getDataRange().getValues();
@@ -1909,30 +1957,31 @@ function doGet(e) {
   return ok(result);
 }
 
-// POST: ghi dữ liệu
 function doPost(e) {
   const data = JSON.parse(e.postData.contents);
   const ss = SpreadsheetApp.openById(data.sheetId);
 
-  if (data.action === 'updateStatus') {
-    const sheet = ss.getSheetByName(data.sheetName || 'Kanban carry-over');
-    if (sheet) {
-      const vals = sheet.getDataRange().getValues();
-      for (let i = 1; i < vals.length; i++) {
-        if (String(vals[i][0]).trim() === String(data.task).trim()) {
-          sheet.getRange(i+1, 3).setValue(data.status); break;
-        }
-      }
-    }
+  if (data.action === 'saveTasks') {
+    let sheet = ss.getSheetByName('Tasks');
+    if (!sheet) { sheet = ss.insertSheet('Tasks'); }
+    else { sheet.clearContents(); }
+    const tasks = data.tasks || [];
+    if (!tasks.length) return ok({ success: true });
+    const headers = Object.keys(tasks[0]);
+    sheet.appendRow(headers);
+    tasks.forEach(t => sheet.appendRow(headers.map(h => t[h] ?? '')));
+    sheet.setFrozenRows(1);
   }
 
-  if (data.action === 'updateNextAction') {
-    const sheet = ss.getSheetByName(data.sheetName || 'Kanban carry-over');
+  if (data.action === 'updateStatus') {
+    const sheet = ss.getSheetByName('Tasks');
     if (sheet) {
       const vals = sheet.getDataRange().getValues();
       for (let i = 1; i < vals.length; i++) {
         if (String(vals[i][0]).trim() === String(data.task).trim()) {
-          sheet.getRange(i+1, 6).setValue(data.nextAction); break;
+          const hIdx = vals[0].indexOf('status');
+          if (hIdx >= 0) sheet.getRange(i+1, hIdx+1).setValue(data.status);
+          break;
         }
       }
     }
@@ -1975,7 +2024,6 @@ function ok(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }`;
 
-  // Show in copyable modal
   let modal = document.getElementById('apps-script-modal');
   if (!modal) {
     modal = document.createElement('div');
