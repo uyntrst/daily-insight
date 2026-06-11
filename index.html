@@ -697,45 +697,41 @@
     </div>
   </div>
 
-  <!-- ── GOOGLE DRIVE PANEL ── -->
+  <!-- ── GOOGLE DRIVE PANEL (MCP via Claude) ── -->
   <div class="gs-panel-overlay" id="drive-overlay" onclick="closeDrivePanel()"></div>
   <div class="gs-panel" id="drive-panel">
     <div class="gs-panel-title">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg>
-      <span>Google Drive Sync</span>
+      <span>Backup / Restore qua Claude</span>
       <button class="gs-panel-close" onclick="closeDrivePanel()">✕</button>
     </div>
 
-    <!-- Status bar -->
-    <div id="drive-status-bar" style="display:none; align-items:center; gap:8px; padding:10px 12px; border-radius:9px; background:var(--green-bg); border:1px solid var(--green-border)">
-      <span style="font-size:11px; color:var(--green-text); font-weight:700">● Đã kết nối Drive</span>
-      <span id="drive-status-file" style="font-size:11px; color:var(--text3); flex:1"></span>
-      <button onclick="driveSaveNow()" style="font-size:11px; padding:3px 10px; border-radius:6px; border:1px solid var(--green-border); background:none; color:var(--green-text); cursor:pointer; font-family:var(--font)">💾 Lưu ngay</button>
-      <button onclick="driveDisconnect()" style="font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:none; color:var(--text3); cursor:pointer; font-family:var(--font)">Ngắt</button>
+    <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:14px">
+      Claude lưu data lên Google Drive thay bạn — không cần OAuth hay setup gì.
     </div>
 
-    <!-- Setup: enter Client ID -->
-    <div id="drive-setup-section">
-      <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:10px">
-        Lưu toàn bộ task data lên Google Drive dưới dạng file JSON — tự động sync khi có thay đổi.
+    <!-- Backup -->
+    <div class="gs-section">
+      <div class="gs-section-head">📤 Backup lên Drive</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.7">
+        1. Click <strong>Copy data</strong> để copy JSON<br>
+        2. Paste vào chat Claude và nói <em>"lưu lên Drive"</em>
       </div>
+      <button class="btn btn-primary" onclick="mcpCopyBackup()" style="width:100%;justify-content:center">
+        📋 Copy data để backup
+      </button>
+    </div>
 
-      <div class="gs-field-label">Google OAuth Client ID</div>
-      <input class="gs-input" id="drive-client-id" placeholder="xxx.apps.googleusercontent.com"
-        value="" oninput="localStorage.setItem('drive_client_id',this.value)" />
-
-      <div style="background:var(--blue-bg); border:1px solid var(--blue-border); border-radius:9px; padding:12px 14px; font-size:11px; color:var(--blue-text); line-height:1.8">
-        <strong>Cách tạo Client ID (miễn phí):</strong><br>
-        1. Vào <strong>console.cloud.google.com</strong> → tạo project mới<br>
-        2. <strong>APIs &amp; Services → Enable APIs</strong> → tìm "Google Drive API" → Enable<br>
-        3. <strong>Credentials → Create Credentials → OAuth client ID</strong><br>
-        4. Application type: <strong>Web application</strong><br>
-        5. Authorized JavaScript origins: <code style="background:rgba(37,99,235,.1);padding:1px 4px;border-radius:3px">http://localhost:3457</code><br>
-        6. Copy Client ID dán vào ô trên
+    <!-- Restore -->
+    <div class="gs-section">
+      <div class="gs-section-head">📥 Restore từ Drive</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.7">
+        1. Nói với Claude: <em>"đọc file backup từ Drive"</em><br>
+        2. Claude sẽ trả về JSON → paste vào ô dưới
       </div>
-
-      <button class="btn btn-primary" onclick="driveConnect()" style="width:100%; justify-content:center; margin-top:4px">
-        🔗 Kết nối Google Drive
+      <textarea id="mcp-restore-input" class="gs-input" rows="4" placeholder='Paste JSON từ Claude vào đây...' style="font-family:monospace;font-size:11px;resize:vertical"></textarea>
+      <button class="btn btn-primary" onclick="mcpDoRestore()" style="width:100%;justify-content:center;margin-top:6px;background:var(--green)">
+        ✅ Restore data
       </button>
     </div>
   </div>
@@ -2021,6 +2017,39 @@ function toggleDrivePanel() {
 function closeDrivePanel() {
   document.getElementById('drive-panel').classList.remove('open');
   document.getElementById('drive-overlay').classList.remove('open');
+}
+
+function mcpCopyBackup() {
+  const data = JSON.stringify(driveCollectAll(), null, 2);
+  navigator.clipboard.writeText(data).then(() => {
+    showToast('✅ Đã copy! Paste vào chat Claude và nói "lưu lên Drive"', 'success', 5000);
+    closeDrivePanel();
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = data;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast('✅ Đã copy! Paste vào chat Claude và nói "lưu lên Drive"', 'success', 5000);
+    closeDrivePanel();
+  });
+}
+
+function mcpDoRestore() {
+  const raw = document.getElementById('mcp-restore-input').value.trim();
+  if (!raw) { showToast('⚠️ Chưa có data để restore', 'error'); return; }
+  try {
+    const snap = JSON.parse(raw);
+    if (snap.tasks?.length) renderDashboard(snap.tasks, 'Backup', 'Drive');
+    if (snap.worklogs) Object.entries(snap.worklogs).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+    if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+    showToast(`✅ Đã restore ${snap.tasks?.length||0} tasks, ${Object.keys(snap.worklogs||{}).length} worklogs`, 'success', 4000);
+    document.getElementById('mcp-restore-input').value = '';
+    closeDrivePanel();
+  } catch(e) {
+    showToast('❌ JSON không hợp lệ — paste lại data từ Claude', 'error', 4000);
+  }
 }
 
 function driveUpdateUI() {
