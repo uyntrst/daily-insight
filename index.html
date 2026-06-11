@@ -1531,6 +1531,7 @@ function wlSaveLog(taskId, entry) {
   const logs = wlGetLogs(taskId);
   logs.unshift(entry);
   localStorage.setItem(wlKey(taskId), JSON.stringify(logs));
+  driveAutoSave();
 }
 
 function wlBuildPrompt(t) {
@@ -2029,11 +2030,31 @@ function driveShowRestorePrompt(tasks, savedAt) {
 }
 
 function driveRestoreData() {
-  const tasks = _drive._pendingRestore;
+  const snap = _drive._pendingRestore;
   document.getElementById('drive-restore-prompt')?.remove();
-  if (!tasks?.length) return;
-  renderDashboard(tasks, 'Drive', 'pm-insight-data.json');
-  showToast(`📥 Đã restore ${tasks.length} tasks từ Drive`, 'success', 3000);
+  if (!snap) return;
+
+  // Restore tasks
+  if (snap.tasks?.length) renderDashboard(snap.tasks, 'Drive', 'pm-insight-data.json');
+
+  // Restore worklogs → localStorage
+  if (snap.worklogs) {
+    Object.entries(snap.worklogs).forEach(([key, val]) => {
+      localStorage.setItem(key, JSON.stringify(val));
+    });
+  }
+
+  // Restore interrupt states → localStorage
+  if (snap.interrupts) {
+    Object.entries(snap.interrupts).forEach(([key, val]) => {
+      localStorage.setItem(key, JSON.stringify(val));
+    });
+  }
+
+  const taskCount = snap.tasks?.length || 0;
+  const logCount  = snap.worklogs  ? Object.keys(snap.worklogs).length  : 0;
+  const intrCount = snap.interrupts ? Object.keys(snap.interrupts).length : 0;
+  showToast(`📥 Restored: ${taskCount} tasks · ${logCount} work logs · ${intrCount} context`, 'success', 4000);
 }
 
 function driveDisconnect() {
@@ -2042,9 +2063,22 @@ function driveDisconnect() {
   showToast('Đã ngắt kết nối Drive', 'info');
 }
 
+function driveCollectAll() {
+  // Collect all worklog_* and intr_* keys from localStorage
+  const worklogs = {}, interrupts = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    try {
+      if (k.startsWith('worklog_')) worklogs[k] = JSON.parse(localStorage.getItem(k));
+      if (k.startsWith('intr_'))    interrupts[k] = JSON.parse(localStorage.getItem(k));
+    } catch {}
+  }
+  return { tasks: _taskStore, worklogs, interrupts, savedAt: new Date().toISOString(), version: 2 };
+}
+
 async function driveSaveNow() {
   if (!_drive.token) return;
-  const data = JSON.stringify({ tasks: _taskStore, savedAt: new Date().toISOString(), version: 1 }, null, 2);
+  const data = JSON.stringify(driveCollectAll(), null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   try {
     let res;
