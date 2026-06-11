@@ -1697,9 +1697,19 @@ window.addEventListener('DOMContentLoaded', () => {
     const fileName = localStorage.getItem('_fileName') || 'Local';
     if (saved) {
       const tasks = JSON.parse(saved);
-      if (tasks?.length) renderDashboard(tasks, 'Local', fileName);
+      if (tasks?.length) {
+        _taskStore = tasks;
+        _currentFileName = fileName;
+        document.getElementById('dropzone').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'grid';
+        const btn = document.getElementById('import-btn');
+        btn.className = 'btn btn-ghost has-file';
+        btn.innerHTML = `✅ ${esc(fileName)}`;
+        const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
+        renderMood(active); renderSidebar(active); renderMain(active);
+      }
     }
-  } catch {}
+  } catch(e) { console.warn('restore failed', e); }
 });
 
 function extractSheetId(urlOrId) {
