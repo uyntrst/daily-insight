@@ -1942,11 +1942,98 @@ function driveConnect() {
       _drive.token = resp.access_token;
       driveUpdateUI();
       closeDrivePanel();
-      showToast('✅ Đã kết nối Google Drive!', 'success');
-      await driveSaveNow();
+      showToast('✅ Đã kết nối Google Drive! Đang tìm file…', 'success');
+      await driveLoadOrSave();
     },
   });
   client.requestAccessToken();
+}
+
+// Find file by name in Drive (drive.file scope only sees files created by this app)
+async function driveFindFile() {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name%3D'pm-insight-data.json'%20and%20trashed%3Dfalse&fields=files(id,name,modifiedTime)`,
+    { headers: { Authorization: `Bearer ${_drive.token}` } }
+  );
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.files?.[0] || null;
+}
+
+async function driveLoadOrSave() {
+  if (!_drive.token) return;
+  try {
+    // If we already know the fileId, try to load it
+    const fileId = _drive.fileId || (await driveFindFile())?.id;
+    if (!fileId) {
+      // No file found — first time, save current data
+      await driveSaveNow();
+      return;
+    }
+    _drive.fileId = fileId;
+    localStorage.setItem('drive_file_id', fileId);
+
+    // Fetch file content
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${_drive.token}` } }
+    );
+    if (!res.ok) { await driveSaveNow(); return; }
+    const data = await res.json();
+
+    if (!data?.tasks?.length) { await driveSaveNow(); return; }
+
+    const savedAt = data.savedAt ? new Date(data.savedAt).toLocaleString('vi') : 'không rõ';
+
+    // Show restore prompt
+    driveShowRestorePrompt(data.tasks, savedAt);
+  } catch(e) {
+    showToast('Không đọc được file Drive: ' + e.message, 'error');
+    await driveSaveNow();
+  }
+}
+
+function driveShowRestorePrompt(tasks, savedAt) {
+  // Remove existing prompt if any
+  document.getElementById('drive-restore-prompt')?.remove();
+
+  const el = document.createElement('div');
+  el.id = 'drive-restore-prompt';
+  el.style.cssText = `
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:var(--surface); border:1.5px solid var(--blue-border);
+    border-radius:14px; padding:16px 20px; z-index:500;
+    box-shadow:0 8px 32px rgba(0,0,0,.15);
+    display:flex; align-items:center; gap:14px;
+    font-family:var(--font); min-width:360px; max-width:90vw;
+    animation:slideUp .25s cubic-bezier(.4,0,.2,1);
+  `;
+  el.innerHTML = `
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:700;color:var(--blue-text)">☁️ Tìm thấy dữ liệu trên Drive</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">${tasks.length} tasks · Lưu lúc ${savedAt}</div>
+    </div>
+    <button onclick="driveRestoreData()" style="
+      background:var(--blue);color:#fff;border:none;border-radius:8px;
+      padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;
+      font-family:var(--font);white-space:nowrap
+    ">📥 Restore</button>
+    <button onclick="driveSaveNow();document.getElementById('drive-restore-prompt')?.remove()" style="
+      background:none;border:1px solid var(--border);border-radius:8px;
+      padding:8px 12px;font-size:12px;color:var(--text2);cursor:pointer;
+      font-family:var(--font);white-space:nowrap
+    ">Bỏ qua</button>
+  `;
+  document.body.appendChild(el);
+  _drive._pendingRestore = tasks;
+}
+
+function driveRestoreData() {
+  const tasks = _drive._pendingRestore;
+  document.getElementById('drive-restore-prompt')?.remove();
+  if (!tasks?.length) return;
+  renderDashboard(tasks, 'Drive', 'pm-insight-data.json');
+  showToast(`📥 Đã restore ${tasks.length} tasks từ Drive`, 'success', 3000);
 }
 
 function driveDisconnect() {
