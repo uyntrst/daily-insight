@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PM/PO Daily Insight</title>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://apis.google.com/js/api.js" async></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -317,20 +319,32 @@
 
   /* ── DRAWER ── */
   .drawer-backdrop {
-    position:fixed; inset:0; background:rgba(15,23,42,0.4); z-index:200;
+    position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:200;
     opacity:0; pointer-events:none; transition:opacity .25s;
+    display:flex; align-items:center; justify-content:center;
   }
   .drawer-backdrop.open { opacity:1; pointer-events:all; }
   .drawer {
-    position:fixed; top:0; right:0; bottom:0; width:430px; max-width:95vw;
-    background:var(--surface); border-left:1px solid var(--border); z-index:201;
-    display:flex; flex-direction:column; box-shadow:-8px 0 32px rgba(0,0,0,.12);
-    transform:translateX(100%); transition:transform .28s cubic-bezier(.4,0,.2,1);
+    position:fixed; inset:0; margin:auto;
+    width:min(780px, 92vw); height:min(88vh, 880px);
+    top:50%; left:50%; transform:translate(-50%, calc(-50% + 20px)) scale(.96);
+    margin-top:0;
+    background:var(--surface); border:1px solid var(--border); border-radius:16px; z-index:201;
+    display:flex; flex-direction:column;
+    box-shadow:0 24px 64px rgba(0,0,0,.18), 0 4px 16px rgba(0,0,0,.1);
+    opacity:0; pointer-events:none;
+    transition:transform .25s cubic-bezier(.4,0,.2,1), opacity .25s;
   }
-  .drawer.open { transform:translateX(0); }
+  .drawer.open {
+    transform:translate(-50%,-50%) scale(1);
+    opacity:1; pointer-events:all;
+  }
+  @media (max-width:860px) { .drawer { width:96vw; height:94vh; border-radius:12px; } }
+  @media (max-width:500px)  { .drawer { width:100vw; height:100dvh; border-radius:0; top:0; left:0; transform:translateY(4%) scale(.98); }
+    .drawer.open { transform:translateY(0) scale(1); } }
   .drawer-header {
     display:flex; align-items:flex-start; justify-content:space-between;
-    padding:20px 22px 16px; border-bottom:1px solid var(--border); gap:12px; flex-shrink:0;
+    padding:28px 28px 18px; border-bottom:1px solid var(--border); gap:12px; flex-shrink:0;
     background:var(--surface2);
   }
   .drawer-title { font-size:15px; font-weight:700; color:var(--text); line-height:1.5; flex:1; }
@@ -391,6 +405,47 @@
   }
   .drawer-risk-icon { font-size:15px; flex-shrink:0; }
   .drawer-risk-text { font-size:12px; color:var(--red-text); line-height:1.6; }
+
+  /* Parkinson block */
+  .parkinson-block {
+    border-radius:10px; padding:13px 15px;
+    display:flex; flex-direction:column; gap:8px;
+    border:1.5px solid;
+  }
+  .parkinson-block.red    { background:var(--red-bg);    border-color:var(--red-border); }
+  .parkinson-block.orange { background:var(--amber-bg);  border-color:var(--amber-border); }
+  .parkinson-block.amber  { background:#fefce8;          border-color:#fde68a; }
+  .parkinson-block.green  { background:var(--green-bg);  border-color:var(--green-border); }
+  .pk-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .pk-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; }
+  .pk-title.red    { color:var(--red-text); }
+  .pk-title.orange { color:var(--amber-text); }
+  .pk-title.amber  { color:#92400e; }
+  .pk-title.green  { color:var(--green-text); }
+  .pk-risk-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; }
+  .pk-risk-badge.red    { background:var(--red);    color:#fff; }
+  .pk-risk-badge.orange { background:var(--orange);  color:#fff; }
+  .pk-risk-badge.amber  { background:var(--amber);  color:#fff; }
+  .pk-risk-badge.green  { background:var(--green);  color:#fff; }
+  .pk-advice { font-size:12px; line-height:1.6; color:var(--text2); }
+  .pk-compressed { display:flex; align-items:center; gap:10px; margin-top:2px; }
+  .pk-compressed-label { font-size:11px; color:var(--text3); }
+  .pk-compressed-date { font-size:12px; font-weight:700; color:var(--blue-text); }
+  .pk-bar-wrap { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .pk-bar { height:100%; border-radius:3px; transition:width .4s; }
+  .pk-bar.red    { background:var(--red); }
+  .pk-bar.orange { background:var(--orange); }
+  .pk-bar.amber  { background:var(--amber); }
+  .pk-bar.green  { background:var(--green); }
+
+  /* Parkinson card badge */
+  .pk-card-badge {
+    font-size:9px; font-weight:700; padding:1px 6px; border-radius:10px;
+    letter-spacing:.03em;
+  }
+  .pk-card-badge.red    { background:var(--red-bg);    color:var(--red-text);    border:1px solid var(--red-border); }
+  .pk-card-badge.orange { background:var(--amber-bg);  color:var(--amber-text);  border:1px solid var(--amber-border); }
+  .pk-card-badge.amber  { background:#fefce8;          color:#92400e;            border:1px solid #fde68a; }
 
   /* Drawer GSheets update row */
   .drawer-update-row {
@@ -506,6 +561,34 @@
   }
   .btn-interrupt-cancel:hover { background:var(--surface); }
 
+  /* ── INTERRUPT SIDE DRAWER ── */
+  .intr-drawer {
+    position:absolute; top:0; left:calc(100% + 12px); width:360px; height:100%;
+    background:var(--surface); border:1px solid var(--border); border-radius:16px; z-index:10;
+    display:flex; flex-direction:column;
+    box-shadow:0 24px 64px rgba(0,0,0,.15);
+    opacity:0; pointer-events:none;
+    transform:translateX(-12px); transition:transform .25s cubic-bezier(.4,0,.2,1), opacity .25s;
+  }
+  .intr-drawer.open { transform:translateX(0); opacity:1; pointer-events:all; }
+  .intr-drawer-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:24px 22px 16px; border-bottom:1px solid var(--border);
+    background:var(--amber-bg); flex-shrink:0;
+  }
+  .intr-drawer-title { font-size:14px; font-weight:800; color:var(--amber-text); }
+  .intr-drawer-close {
+    width:28px; height:28px; border-radius:7px; border:1px solid var(--amber-border);
+    background:none; cursor:pointer; font-size:13px; color:var(--amber-text);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .15s;
+  }
+  .intr-drawer-close:hover { background:var(--amber-border); }
+  .intr-drawer-body {
+    flex:1; overflow-y:auto; padding:18px 20px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+
   /* ── RESUME BANNER (shown when opening interrupted task) ── */
   .resume-banner {
     background:linear-gradient(135deg,var(--amber-bg),#fffdf0);
@@ -552,6 +635,12 @@
       <button class="btn btn-sheets" id="gs-btn" onclick="toggleGsPanel()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         Google Sheets
+      </button>
+
+      <!-- Google Drive button -->
+      <button class="btn btn-ghost" id="drive-btn" onclick="toggleDrivePanel()" style="gap:5px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg>
+        Drive
       </button>
 
       <!-- Import Excel button -->
@@ -608,6 +697,49 @@
     </div>
   </div>
 
+  <!-- ── GOOGLE DRIVE PANEL ── -->
+  <div class="gs-panel-overlay" id="drive-overlay" onclick="closeDrivePanel()"></div>
+  <div class="gs-panel" id="drive-panel">
+    <div class="gs-panel-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg>
+      <span>Google Drive Sync</span>
+      <button class="gs-panel-close" onclick="closeDrivePanel()">✕</button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="drive-status-bar" style="display:none; align-items:center; gap:8px; padding:10px 12px; border-radius:9px; background:var(--green-bg); border:1px solid var(--green-border)">
+      <span style="font-size:11px; color:var(--green-text); font-weight:700">● Đã kết nối Drive</span>
+      <span id="drive-status-file" style="font-size:11px; color:var(--text3); flex:1"></span>
+      <button onclick="driveSaveNow()" style="font-size:11px; padding:3px 10px; border-radius:6px; border:1px solid var(--green-border); background:none; color:var(--green-text); cursor:pointer; font-family:var(--font)">💾 Lưu ngay</button>
+      <button onclick="driveDisconnect()" style="font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:none; color:var(--text3); cursor:pointer; font-family:var(--font)">Ngắt</button>
+    </div>
+
+    <!-- Setup: enter Client ID -->
+    <div id="drive-setup-section">
+      <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:10px">
+        Lưu toàn bộ task data lên Google Drive dưới dạng file JSON — tự động sync khi có thay đổi.
+      </div>
+
+      <div class="gs-field-label">Google OAuth Client ID</div>
+      <input class="gs-input" id="drive-client-id" placeholder="xxx.apps.googleusercontent.com"
+        value="" oninput="localStorage.setItem('drive_client_id',this.value)" />
+
+      <div style="background:var(--blue-bg); border:1px solid var(--blue-border); border-radius:9px; padding:12px 14px; font-size:11px; color:var(--blue-text); line-height:1.8">
+        <strong>Cách tạo Client ID (miễn phí):</strong><br>
+        1. Vào <strong>console.cloud.google.com</strong> → tạo project mới<br>
+        2. <strong>APIs &amp; Services → Enable APIs</strong> → tìm "Google Drive API" → Enable<br>
+        3. <strong>Credentials → Create Credentials → OAuth client ID</strong><br>
+        4. Application type: <strong>Web application</strong><br>
+        5. Authorized JavaScript origins: <code style="background:rgba(37,99,235,.1);padding:1px 4px;border-radius:3px">http://localhost:3457</code><br>
+        6. Copy Client ID dán vào ô trên
+      </div>
+
+      <button class="btn btn-primary" onclick="driveConnect()" style="width:100%; justify-content:center; margin-top:4px">
+        🔗 Kết nối Google Drive
+      </button>
+    </div>
+  </div>
+
   <!-- ── DRAWER BACKDROP ── -->
   <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
 
@@ -639,6 +771,15 @@
       </div>
       <!-- Interrupt brain dump form (hidden by default) -->
       <div class="interrupt-form" id="interrupt-form" style="display:none"></div>
+    </div>
+
+    <!-- ── INTERRUPT PANEL (attached right of modal) ── -->
+    <div class="intr-drawer" id="intr-drawer">
+      <div class="intr-drawer-header">
+        <div class="intr-drawer-title">⚡ Bị cắt ngang</div>
+        <button class="intr-drawer-close" onclick="closeInterruptDrawer()">✕</button>
+      </div>
+      <div class="intr-drawer-body" id="intr-drawer-body"></div>
     </div>
   </div>
 
@@ -687,6 +828,35 @@ function deadlineStatus(d) {
   if (diff === 0) return { type:'today', diff:0, label:'Hôm nay!' };
   if (diff <= 5)  return { type:'soon', diff, label:`Còn ${diff} ngày (${fmtDate(t)})` };
   return { type:'ok', diff, label:fmtDate(t) };
+}
+
+// Parkinson's Law analysis
+function parkinsonAnalysis(deadline, status) {
+  if (!deadline || status === 'Done') return null;
+  const d = new Date(deadline); d.setHours(0,0,0,0);
+  const daysLeft = Math.round((d - TODAY) / 86400000);
+  if (daysLeft <= 0) return null; // already overdue — handled separately
+
+  // compressed deadline = cut remaining time in half, min 1 day
+  const compressed = Math.max(1, Math.round(daysLeft / 2));
+  const compressedDate = new Date(TODAY.getTime() + compressed * 86400000);
+
+  let risk, advice, color;
+  if (daysLeft > 14) {
+    risk = 'Rất cao'; color = 'red';
+    advice = `Deadline còn ${daysLeft} ngày — não sẽ trì hoãn đến phút cuối. Tự đặt mục tiêu hoàn thành trong ${compressed} ngày.`;
+  } else if (daysLeft > 7) {
+    risk = 'Cao'; color = 'orange';
+    advice = `Còn ${daysLeft} ngày — đủ để não "để mai làm". Đặt checkpoint ${compressed} ngày tới.`;
+  } else if (daysLeft > 3) {
+    risk = 'Trung bình'; color = 'amber';
+    advice = `Còn ${daysLeft} ngày — áp lực vừa đủ. Chốt draft trong ${compressed} ngày để còn buffer.`;
+  } else {
+    risk = 'Thấp'; color = 'green';
+    advice = `Còn ${daysLeft} ngày — áp lực tốt, dễ tập trung. Giữ đà này.`;
+  }
+
+  return { daysLeft, compressed, compressedDate, risk, advice, color };
 }
 
 function esc(s) {
@@ -769,6 +939,7 @@ let _currentFileName = '';
 function renderDashboard(tasks, sheetName, fileName) {
   _taskStore = tasks;
   _currentFileName = fileName || '';
+  driveAutoSave();
   document.getElementById('dropzone').style.display  = 'none';
   document.getElementById('dashboard').style.display = 'grid';
 
@@ -990,6 +1161,8 @@ function renderAC(t, color) {
   const logCnt = wlGetLogs(t.task).length;
   const logBadge = logCnt ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--blue-text);background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:4px;padding:1px 6px;margin-top:3px">📝 ${logCnt}</span>` : '';
   const interruptBadge = interruptGet(t.task) ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:4px;padding:1px 6px;margin-top:3px">⚡ tiếp tục</span>` : '';
+  const pk = parkinsonAnalysis(t.deadline, t.status);
+  const pkBadge = (pk && pk.color !== 'green') ? `<span class="pk-card-badge ${pk.color}">⏳ ${pk.color==='red'?'Parkinson cao':pk.color==='orange'?'Parkinson':pk.color==='amber'?'Parkinson nhẹ':''}</span>` : '';
 
   return `
     <div class="ac ${color}" onclick="openDrawer(${idx})">
@@ -999,7 +1172,7 @@ function renderAC(t, color) {
         <div class="ac-target">${esc(t.task)}${t.description ? ` · ${t.description.slice(0,80)}` : ''}</div>
         ${risk ? `<div class="ac-risk ${riskCls}">${esc(risk)}</div>` : ''}
         ${t.waitingFor ? `<div class="wait-chip">🔵 Chờ: ${esc(t.waitingFor)}</div>` : ''}
-        <div style="display:flex;gap:5px;flex-wrap:wrap">${logBadge}${interruptBadge}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${logBadge}${interruptBadge}${pkBadge}</div>
       </div>
       <div class="ac-right">${deadlineBadge(t)}</div>
     </div>`;
@@ -1052,6 +1225,26 @@ function openDrawer(idx) {
         <div class="dl-body">
           <div class="dl-label">Deadline</div>
           <div class="dl-value ${dlCls}">${esc(dlText)}</div>
+        </div>
+      </div>`;
+  }
+
+  // Parkinson block
+  const pk = parkinsonAnalysis(t.deadline, t.status);
+  let pkHtml = '';
+  if (pk) {
+    const barPct = pk.color === 'green' ? 90 : pk.color === 'amber' ? 65 : pk.color === 'orange' ? 40 : 15;
+    pkHtml = `
+      <div class="parkinson-block ${pk.color}">
+        <div class="pk-header">
+          <div class="pk-title ${pk.color}">⏳ Định luật Parkinson</div>
+          <div class="pk-risk-badge ${pk.color}">Rủi ro ${pk.risk}</div>
+        </div>
+        <div class="pk-bar-wrap"><div class="pk-bar ${pk.color}" style="width:${barPct}%"></div></div>
+        <div class="pk-advice">${esc(pk.advice)}</div>
+        <div class="pk-compressed">
+          <div class="pk-compressed-label">🎯 Mục tiêu cá nhân nên xong trước:</div>
+          <div class="pk-compressed-date">${fmtDate(pk.compressedDate)} <span style="font-weight:400;color:var(--text3)">(còn ${pk.compressed} ngày)</span></div>
         </div>
       </div>`;
   }
@@ -1115,6 +1308,7 @@ function openDrawer(idx) {
       ${t.needMoreInfo ? `<span class="tag tag-gray">⚪ Need More Info</span>` : ''}
     </div>
     ${deadlineHtml}
+    ${pkHtml}
     ${naHtml}
     ${waitHtml}
     ${riskHtml}
@@ -1143,6 +1337,7 @@ function drawerUpdateStatus(idx, newStatus) {
   if (!t) return;
   t.status = newStatus; t.group = getStatusGroup(newStatus);
   gsWriteBack({ action:'updateStatus', task:t.task, status:newStatus });
+  driveAutoSave();
   showToast(`✏️ Đã cập nhật: ${t.task} → ${newStatus}`, 'success');
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
   renderMood(active); renderSidebar(active); renderMain(active);
@@ -1170,20 +1365,23 @@ function interruptClear(name) {
 }
 
 function toggleInterruptForm() {
-  const form = document.getElementById('interrupt-form');
-  const btn  = document.getElementById('dca-interrupt-btn');
-  if (form.style.display === 'none') {
-    const idx = +document.getElementById('drawer-footer').dataset.idx;
-    form.innerHTML = buildInterruptFormHtml(idx);
-    form.style.display = 'flex';
-    btn.style.background = 'var(--amber-bg)';
-    btn.style.color = 'var(--amber-text)';
-    form.querySelector('.if-input')?.focus();
-  } else {
-    form.style.display = 'none';
-    btn.style.background = '';
-    btn.style.color = '';
-  }
+  const idx = +document.getElementById('drawer-footer').dataset.idx;
+  openInterruptDrawer(idx);
+}
+
+function openInterruptDrawer(idx) {
+  const body = document.getElementById('intr-drawer-body');
+  body.innerHTML = buildInterruptFormHtml(idx);
+  document.getElementById('intr-drawer').classList.add('open');
+  const btn = document.getElementById('dca-interrupt-btn');
+  if (btn) { btn.style.background = 'var(--amber-bg)'; btn.style.color = 'var(--amber-text)'; }
+  body.querySelector('.if-input')?.focus();
+}
+
+function closeInterruptDrawer() {
+  document.getElementById('intr-drawer').classList.remove('open');
+  const btn = document.getElementById('dca-interrupt-btn');
+  if (btn) { btn.style.background = ''; btn.style.color = ''; }
 }
 
 function buildInterruptFormHtml(idx) {
@@ -1215,7 +1413,7 @@ function buildInterruptFormHtml(idx) {
     </div>
     <div class="interrupt-actions">
       <button class="btn-interrupt-save" onclick="saveInterruptAndClose(${idx})">💾 Lưu &amp; Thoát</button>
-      <button class="btn-interrupt-cancel" onclick="toggleInterruptForm()">Huỷ</button>
+      <button class="btn-interrupt-cancel" onclick="closeInterruptDrawer()">Huỷ</button>
     </div>`;
 }
 
@@ -1235,6 +1433,7 @@ function saveInterruptAndClose(idx) {
     return;
   }
   interruptSave(t.task, data);
+  driveAutoSave();
   // Auto-save to worklog
   const summary = [
     data.nextAction && `Next action: ${data.nextAction}`,
@@ -1244,8 +1443,8 @@ function saveInterruptAndClose(idx) {
   if (summary) wlSaveLog(t.task, { timestamp: new Date().toISOString(), note: `⚡ BỊ CẮT NGANG — ${summary}`, statusAtTime: t.status, nextAction: data.nextAction });
 
   showToast('⚡ Đã lưu context! Quay lại sẽ tiếp tục từ đây', 'success', 3000);
+  closeInterruptDrawer();
   closeDrawer();
-  // Re-render cards to show interrupt badge
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
   renderMain(active); renderSidebar(active);
 }
@@ -1314,6 +1513,7 @@ function completeTaskFromDrawer() {
   // Mark done
   t.status = 'Done'; t.group = 'done';
   gsWriteBack({ action:'updateStatus', task:t.task, status:'Done' });
+  driveAutoSave();
   showToast(`🎉 Hoàn thành: ${t.task}`, 'success', 3500);
   closeDrawer();
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
@@ -1679,6 +1879,130 @@ document.body.addEventListener('drop', e => {
 dz.addEventListener('click', e => {
   if (e.target.closest('.gs-connect-card')) return;
   document.getElementById('file-input').click();
+});
+
+// ── GOOGLE DRIVE INTEGRATION ───────────────────────────────────────────────
+const _drive = {
+  token: null,
+  fileId: localStorage.getItem('drive_file_id') || null,
+  clientId: localStorage.getItem('drive_client_id') || '',
+  saveTimer: null,
+};
+
+function toggleDrivePanel() {
+  const panel = document.getElementById('drive-panel');
+  const overlay = document.getElementById('drive-overlay');
+  const isOpen = panel.classList.contains('open');
+  closeGsPanel();
+  if (!isOpen) {
+    document.getElementById('drive-client-id').value = _drive.clientId;
+    driveUpdateUI();
+    panel.classList.add('open');
+    overlay.classList.add('open');
+  }
+}
+function closeDrivePanel() {
+  document.getElementById('drive-panel').classList.remove('open');
+  document.getElementById('drive-overlay').classList.remove('open');
+}
+
+function driveUpdateUI() {
+  const statusBar = document.getElementById('drive-status-bar');
+  const setupSection = document.getElementById('drive-setup-section');
+  const driveBtn = document.getElementById('drive-btn');
+  if (_drive.token) {
+    statusBar.style.display = 'flex';
+    setupSection.style.display = 'none';
+    document.getElementById('drive-status-file').textContent = _drive.fileId ? `File ID: ${_drive.fileId.slice(0,12)}…` : 'Chưa lưu lần nào';
+    driveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg> ● Drive`;
+    driveBtn.style.color = 'var(--green-text)';
+  } else {
+    statusBar.style.display = 'none';
+    setupSection.style.display = 'block';
+    driveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg> Drive`;
+    driveBtn.style.color = '';
+  }
+}
+
+function driveConnect() {
+  const clientId = (document.getElementById('drive-client-id').value || '').trim();
+  if (!clientId) { showToast('Nhập Client ID trước', 'error'); return; }
+  _drive.clientId = clientId;
+  localStorage.setItem('drive_client_id', clientId);
+
+  // Use Google Identity Services token flow
+  if (!window.google?.accounts?.oauth2) {
+    showToast('Đang tải Google SDK, thử lại sau 2s…', 'info'); return;
+  }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: async (resp) => {
+      if (resp.error) { showToast('Lỗi OAuth: ' + resp.error, 'error'); return; }
+      _drive.token = resp.access_token;
+      driveUpdateUI();
+      closeDrivePanel();
+      showToast('✅ Đã kết nối Google Drive!', 'success');
+      await driveSaveNow();
+    },
+  });
+  client.requestAccessToken();
+}
+
+function driveDisconnect() {
+  _drive.token = null;
+  driveUpdateUI();
+  showToast('Đã ngắt kết nối Drive', 'info');
+}
+
+async function driveSaveNow() {
+  if (!_drive.token) return;
+  const data = JSON.stringify({ tasks: _taskStore, savedAt: new Date().toISOString(), version: 1 }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  try {
+    let res;
+    if (_drive.fileId) {
+      // Update existing file
+      res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${_drive.fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${_drive.token}`, 'Content-Type': 'application/json' },
+        body: blob,
+      });
+    } else {
+      // Create new file
+      const meta = { name: 'pm-insight-data.json', mimeType: 'application/json' };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+      form.append('file', blob);
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${_drive.token}` },
+        body: form,
+      });
+    }
+    if (res.status === 401) { _drive.token = null; driveUpdateUI(); showToast('Session Drive hết hạn — kết nối lại', 'error'); return; }
+    const json = await res.json();
+    if (json.id) {
+      _drive.fileId = json.id;
+      localStorage.setItem('drive_file_id', json.id);
+      document.getElementById('drive-status-file').textContent = `Đã lưu lúc ${new Date().toLocaleTimeString('vi')}`;
+      showToast('💾 Đã lưu lên Google Drive', 'success', 2000);
+    }
+  } catch(e) { showToast('Lỗi Drive: ' + e.message, 'error'); }
+}
+
+// Auto-save with debounce after any task change
+function driveAutoSave() {
+  if (!_drive.token) return;
+  clearTimeout(_drive.saveTimer);
+  _drive.saveTimer = setTimeout(() => driveSaveNow(), 3000);
+}
+
+// Restore client ID on load
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('drive_client_id');
+  if (saved) { _drive.clientId = saved; document.getElementById('drive-client-id').value = saved; }
+  driveUpdateUI();
 });
 
 // ── DATE LABEL ─────────────────────────────────────────────────────────────
