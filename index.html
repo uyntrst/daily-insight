@@ -1994,25 +1994,14 @@ dz.addEventListener('click', e => {
   document.getElementById('file-input').click();
 });
 
-// ── GOOGLE DRIVE INTEGRATION ───────────────────────────────────────────────
-const _drive = {
-  token: null,
-  fileId: localStorage.getItem('drive_file_id') || null,
-  clientId: localStorage.getItem('drive_client_id') || '',
-  saveTimer: null,
-};
+// ── GOOGLE DRIVE (MCP via Claude) ──────────────────────────────────────────
 
 function toggleDrivePanel() {
   const panel = document.getElementById('drive-panel');
   const overlay = document.getElementById('drive-overlay');
   const isOpen = panel.classList.contains('open');
   closeGsPanel();
-  if (!isOpen) {
-    document.getElementById('drive-client-id').value = _drive.clientId;
-    driveUpdateUI();
-    panel.classList.add('open');
-    overlay.classList.add('open');
-  }
+  if (!isOpen) { panel.classList.add('open'); overlay.classList.add('open'); }
 }
 function closeDrivePanel() {
   document.getElementById('drive-panel').classList.remove('open');
@@ -2052,162 +2041,6 @@ function mcpDoRestore() {
   }
 }
 
-function driveUpdateUI() {
-  const statusBar = document.getElementById('drive-status-bar');
-  const setupSection = document.getElementById('drive-setup-section');
-  const driveBtn = document.getElementById('drive-btn');
-  if (_drive.token) {
-    statusBar.style.display = 'flex';
-    setupSection.style.display = 'none';
-    document.getElementById('drive-status-file').textContent = _drive.fileId ? `File ID: ${_drive.fileId.slice(0,12)}…` : 'Chưa lưu lần nào';
-    driveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg> ● Drive`;
-    driveBtn.style.color = 'var(--green-text)';
-  } else {
-    statusBar.style.display = 'none';
-    setupSection.style.display = 'block';
-    driveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg> Drive`;
-    driveBtn.style.color = '';
-  }
-}
-
-function driveConnect() {
-  const clientId = (document.getElementById('drive-client-id').value || '').trim();
-  if (!clientId) { showToast('Nhập Client ID trước', 'error'); return; }
-  _drive.clientId = clientId;
-  localStorage.setItem('drive_client_id', clientId);
-
-  // Use Google Identity Services token flow
-  if (!window.google?.accounts?.oauth2) {
-    showToast('Đang tải Google SDK, thử lại sau 2s…', 'info'); return;
-  }
-  const client = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: 'https://www.googleapis.com/auth/drive.file',
-    callback: async (resp) => {
-      if (resp.error) { showToast('Lỗi OAuth: ' + resp.error, 'error'); return; }
-      _drive.token = resp.access_token;
-      driveUpdateUI();
-      closeDrivePanel();
-      showToast('✅ Đã kết nối Google Drive! Đang tìm file…', 'success');
-      await driveLoadOrSave();
-    },
-  });
-  client.requestAccessToken();
-}
-
-// Find file by name in Drive (drive.file scope only sees files created by this app)
-async function driveFindFile() {
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=name%3D'pm-insight-data.json'%20and%20trashed%3Dfalse&fields=files(id,name,modifiedTime)`,
-    { headers: { Authorization: `Bearer ${_drive.token}` } }
-  );
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json.files?.[0] || null;
-}
-
-async function driveLoadOrSave() {
-  if (!_drive.token) return;
-  try {
-    // If we already know the fileId, try to load it
-    const fileId = _drive.fileId || (await driveFindFile())?.id;
-    if (!fileId) {
-      // No file found — first time, save current data
-      await driveSaveNow();
-      return;
-    }
-    _drive.fileId = fileId;
-    localStorage.setItem('drive_file_id', fileId);
-
-    // Fetch file content
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      { headers: { Authorization: `Bearer ${_drive.token}` } }
-    );
-    if (!res.ok) { await driveSaveNow(); return; }
-    const data = await res.json();
-
-    if (!data?.tasks?.length) { await driveSaveNow(); return; }
-
-    const savedAt = data.savedAt ? new Date(data.savedAt).toLocaleString('vi') : 'không rõ';
-
-    // Show restore prompt
-    driveShowRestorePrompt(data.tasks, savedAt);
-  } catch(e) {
-    showToast('Không đọc được file Drive: ' + e.message, 'error');
-    await driveSaveNow();
-  }
-}
-
-function driveShowRestorePrompt(tasks, savedAt) {
-  // Remove existing prompt if any
-  document.getElementById('drive-restore-prompt')?.remove();
-
-  const el = document.createElement('div');
-  el.id = 'drive-restore-prompt';
-  el.style.cssText = `
-    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
-    background:var(--surface); border:1.5px solid var(--blue-border);
-    border-radius:14px; padding:16px 20px; z-index:500;
-    box-shadow:0 8px 32px rgba(0,0,0,.15);
-    display:flex; align-items:center; gap:14px;
-    font-family:var(--font); min-width:360px; max-width:90vw;
-    animation:slideUp .25s cubic-bezier(.4,0,.2,1);
-  `;
-  el.innerHTML = `
-    <div style="flex:1">
-      <div style="font-size:12px;font-weight:700;color:var(--blue-text)">☁️ Tìm thấy dữ liệu trên Drive</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px">${tasks.length} tasks · Lưu lúc ${savedAt}</div>
-    </div>
-    <button onclick="driveRestoreData()" style="
-      background:var(--blue);color:#fff;border:none;border-radius:8px;
-      padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;
-      font-family:var(--font);white-space:nowrap
-    ">📥 Restore</button>
-    <button onclick="driveSaveNow();document.getElementById('drive-restore-prompt')?.remove()" style="
-      background:none;border:1px solid var(--border);border-radius:8px;
-      padding:8px 12px;font-size:12px;color:var(--text2);cursor:pointer;
-      font-family:var(--font);white-space:nowrap
-    ">Bỏ qua</button>
-  `;
-  document.body.appendChild(el);
-  _drive._pendingRestore = tasks;
-}
-
-function driveRestoreData() {
-  const snap = _drive._pendingRestore;
-  document.getElementById('drive-restore-prompt')?.remove();
-  if (!snap) return;
-
-  // Restore tasks
-  if (snap.tasks?.length) renderDashboard(snap.tasks, 'Drive', 'pm-insight-data.json');
-
-  // Restore worklogs → localStorage
-  if (snap.worklogs) {
-    Object.entries(snap.worklogs).forEach(([key, val]) => {
-      localStorage.setItem(key, JSON.stringify(val));
-    });
-  }
-
-  // Restore interrupt states → localStorage
-  if (snap.interrupts) {
-    Object.entries(snap.interrupts).forEach(([key, val]) => {
-      localStorage.setItem(key, JSON.stringify(val));
-    });
-  }
-
-  const taskCount = snap.tasks?.length || 0;
-  const logCount  = snap.worklogs  ? Object.keys(snap.worklogs).length  : 0;
-  const intrCount = snap.interrupts ? Object.keys(snap.interrupts).length : 0;
-  showToast(`📥 Restored: ${taskCount} tasks · ${logCount} work logs · ${intrCount} context`, 'success', 4000);
-}
-
-function driveDisconnect() {
-  _drive.token = null;
-  driveUpdateUI();
-  showToast('Đã ngắt kết nối Drive', 'info');
-}
-
 function driveCollectAll() {
   // Collect all worklog_* and intr_* keys from localStorage
   const worklogs = {}, interrupts = {};
@@ -2221,55 +2054,7 @@ function driveCollectAll() {
   return { tasks: _taskStore, worklogs, interrupts, savedAt: new Date().toISOString(), version: 2 };
 }
 
-async function driveSaveNow() {
-  if (!_drive.token) return;
-  const data = JSON.stringify(driveCollectAll(), null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  try {
-    let res;
-    if (_drive.fileId) {
-      // Update existing file
-      res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${_drive.fileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${_drive.token}`, 'Content-Type': 'application/json' },
-        body: blob,
-      });
-    } else {
-      // Create new file
-      const meta = { name: 'pm-insight-data.json', mimeType: 'application/json' };
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-      form.append('file', blob);
-      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${_drive.token}` },
-        body: form,
-      });
-    }
-    if (res.status === 401) { _drive.token = null; driveUpdateUI(); showToast('Session Drive hết hạn — kết nối lại', 'error'); return; }
-    const json = await res.json();
-    if (json.id) {
-      _drive.fileId = json.id;
-      localStorage.setItem('drive_file_id', json.id);
-      document.getElementById('drive-status-file').textContent = `Đã lưu lúc ${new Date().toLocaleTimeString('vi')}`;
-      showToast('💾 Đã lưu lên Google Drive', 'success', 2000);
-    }
-  } catch(e) { showToast('Lỗi Drive: ' + e.message, 'error'); }
-}
-
-// Auto-save with debounce after any task change
-function driveAutoSave() {
-  if (!_drive.token) return;
-  clearTimeout(_drive.saveTimer);
-  _drive.saveTimer = setTimeout(() => driveSaveNow(), 3000);
-}
-
-// Restore client ID on load
-window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('drive_client_id');
-  if (saved) { _drive.clientId = saved; document.getElementById('drive-client-id').value = saved; }
-  driveUpdateUI();
-});
+function driveAutoSave() { /* no-op: backup now via Claude MCP */ }
 
 // ── DATE LABEL ─────────────────────────────────────────────────────────────
 const d = new Date();
