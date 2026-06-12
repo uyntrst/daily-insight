@@ -1763,13 +1763,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('gs-script-url').value = _gsConfig.scriptUrl;
   }
 
-  // Auto-load from Sheets if configured, else fallback to localStorage
-  if (_gsConfig.scriptUrl) {
-    gsAutoLoad();
-    return;
-  }
-
-  // Restore tasks from localStorage on load
+  // Load tasks from localStorage — source of truth after first import
   try {
     const saved = localStorage.getItem('_taskStore');
     const fileName = localStorage.getItem('_fileName') || 'Local';
