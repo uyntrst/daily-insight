@@ -1855,14 +1855,16 @@ async function gsAutoLoad() {
     const data = await resp.json();
 
     if (data.tasks?.length) {
-      _taskStore = data.tasks;
+      // Re-derive group from status to ensure correctness after Sheets round-trip
+      const tasks = data.tasks.map(t => ({ ...t, group: getStatusGroup(t.status) }));
+      _taskStore = tasks;
       _currentFileName = 'Google Sheets';
       document.getElementById('dropzone').style.display = 'none';
       document.getElementById('dashboard').style.display = 'grid';
       const btn = document.getElementById('import-btn');
       btn.className = 'btn btn-ghost has-file';
       btn.innerHTML = `✅ Google Sheets`;
-      const active = data.tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
+      const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
       renderMood(active); renderSidebar(active); renderMain(active);
       showToast(`✅ Đã load ${data.tasks.length} tasks từ Sheets`, 'success');
     } else {
