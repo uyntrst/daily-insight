@@ -643,6 +643,11 @@
         Drive
       </button>
 
+      <!-- Done tasks button -->
+      <button class="btn btn-ghost" id="done-btn" onclick="toggleDonePage()" style="display:none">
+        ✅ Done <span id="done-count" style="background:var(--green-bg);color:var(--green-text);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:2px">0</span>
+      </button>
+
       <!-- Import Excel button -->
       <button class="btn btn-ghost" id="import-btn" onclick="document.getElementById('file-input').click()">
         📂 Import Excel
@@ -804,6 +809,16 @@
   <div class="body" id="dashboard" style="display:none">
     <aside class="focus-col" id="sidebar"></aside>
     <main class="main-panel" id="main-panel"></main>
+  </div>
+
+  <!-- ── DONE PAGE ── -->
+  <div id="done-page" style="display:none;padding:28px 32px;max-width:860px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button onclick="toggleDonePage()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Quay lại</button>
+      <h2 style="font-size:16px;font-weight:700;color:var(--text);margin:0">✅ Task đã hoàn thành</h2>
+      <span id="done-page-count" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+    <div id="done-list"></div>
   </div>
 </div>
 
@@ -1149,39 +1164,61 @@ function renderMain(tasks) {
     html += `</div></div></div>`;
   }
 
-  // ── DONE SECTION ──
-  const done = _taskStore.filter(t => t.group === 'done');
-  if (done.length) {
-    html += `<div class="section-block">
-      <div class="section-head" style="color:var(--green-text)">
-        <span>✅ Đã hoàn thành</span><span class="section-count">${done.length} tasks</span>
-      </div>
-      <div class="ac-list">`;
-    done.forEach(t => {
-      const idx = _taskStore.indexOf(t);
-      html += `<div class="ac-card done-card" style="opacity:.7">
-        <div class="ac-main">
-          <div class="ac-title" style="text-decoration:line-through;color:var(--text2)">${esc(t.task)}</div>
-          <div class="ac-sub">${esc(t.project||'')}${t.nextAction ? ' · ' + esc(t.nextAction) : ''}</div>
-        </div>
-        <button onclick="uncompleteTask(${idx})" style="flex-shrink:0;padding:5px 12px;font-size:11px;border:1px solid var(--border);border-radius:7px;background:none;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">↩ Uncomplete</button>
-      </div>`;
-    });
-    html += `</div></div>`;
-  }
-
   document.getElementById('main-panel').innerHTML = html;
+  updateDoneCount();
 }
 
-function uncompleteTask(idx) {
+function updateDoneCount() {
+  const done = _taskStore.filter(t => t.group === 'done');
+  const btn = document.getElementById('done-btn');
+  const badge = document.getElementById('done-count');
+  if (btn) btn.style.display = done.length ? 'inline-flex' : 'none';
+  if (badge) badge.textContent = done.length;
+}
+
+function toggleDonePage() {
+  const dash = document.getElementById('dashboard');
+  const donePage = document.getElementById('done-page');
+  const isOnDone = donePage.style.display !== 'none';
+  if (isOnDone) {
+    donePage.style.display = 'none';
+    dash.style.display = 'grid';
+  } else {
+    dash.style.display = 'none';
+    donePage.style.display = 'block';
+    renderDonePage();
+  }
+}
+
+function renderDonePage() {
+  const done = _taskStore.filter(t => t.group === 'done');
+  document.getElementById('done-page-count').textContent = `${done.length} tasks`;
+  const list = document.getElementById('done-list');
+  if (!done.length) {
+    list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">Chưa có task nào hoàn thành</div>`;
+    return;
+  }
+  list.innerHTML = done.map(t => {
+    const idx = _taskStore.indexOf(t);
+    return `<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text2);text-decoration:line-through;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.task)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">${esc(t.project||'')}${t.nextAction ? ' · ' + esc(t.nextAction) : ''}</div>
+      </div>
+      <button onclick="undoneTask(${idx})" style="flex-shrink:0;padding:7px 16px;font-size:12px;font-weight:600;border:1px solid var(--orange);border-radius:8px;background:none;color:var(--orange);cursor:pointer;font-family:var(--font);white-space:nowrap">↩ Undone</button>
+    </div>`;
+  }).join('');
+}
+
+function undoneTask(idx) {
   const t = _taskStore[idx];
   if (!t) return;
   t.status = '01.In progress'; t.group = 'inprogress';
   gsWriteBack({ action: 'updateStatus', task: t.task, status: t.status });
   saveTasksToStorage();
   showToast(`↩ Đã mở lại: ${t.task}`, 'info');
-  const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
-  renderMood(active); renderSidebar(active); renderMain(active);
+  renderDonePage();
+  updateDoneCount();
 }
 
 // ── ACTION CARD ─────────────────────────────────────────────────────────────
