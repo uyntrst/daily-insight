@@ -828,7 +828,9 @@ const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 
 function fmtDate(d) {
   if (!d) return null;
-  return d.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt)) return null;
+  return dt.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
 }
 
 function deadlineStatus(d) {
