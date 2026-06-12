@@ -1149,7 +1149,39 @@ function renderMain(tasks) {
     html += `</div></div></div>`;
   }
 
+  // ── DONE SECTION ──
+  const done = _taskStore.filter(t => t.group === 'done');
+  if (done.length) {
+    html += `<div class="section-block">
+      <div class="section-head" style="color:var(--green-text)">
+        <span>✅ Đã hoàn thành</span><span class="section-count">${done.length} tasks</span>
+      </div>
+      <div class="ac-list">`;
+    done.forEach(t => {
+      const idx = _taskStore.indexOf(t);
+      html += `<div class="ac-card done-card" style="opacity:.7">
+        <div class="ac-main">
+          <div class="ac-title" style="text-decoration:line-through;color:var(--text2)">${esc(t.task)}</div>
+          <div class="ac-sub">${esc(t.project||'')}${t.nextAction ? ' · ' + esc(t.nextAction) : ''}</div>
+        </div>
+        <button onclick="uncompleteTask(${idx})" style="flex-shrink:0;padding:5px 12px;font-size:11px;border:1px solid var(--border);border-radius:7px;background:none;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">↩ Uncomplete</button>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
   document.getElementById('main-panel').innerHTML = html;
+}
+
+function uncompleteTask(idx) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  t.status = '01.In progress'; t.group = 'inprogress';
+  gsWriteBack({ action: 'updateStatus', task: t.task, status: t.status });
+  saveTasksToStorage();
+  showToast(`↩ Đã mở lại: ${t.task}`, 'info');
+  const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
+  renderMood(active); renderSidebar(active); renderMain(active);
 }
 
 // ── ACTION CARD ─────────────────────────────────────────────────────────────
