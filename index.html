@@ -1896,8 +1896,8 @@ async function gsWriteBack(payload) {
     const sheetId = extractSheetId(_gsConfig.sheetUrl);
     await fetch(_gsConfig.scriptUrl, {
       method: 'POST',
-      mode:   'no-cors',  // Apps Script doesn't need CORS preflight for no-cors
-      headers: {'Content-Type': 'application/json'},
+      mode:   'no-cors',
+      headers: {'Content-Type': 'text/plain'},
       body: JSON.stringify({ ...payload, sheetId }),
     });
   } catch(err) {
