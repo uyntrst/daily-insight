@@ -1222,48 +1222,46 @@ function renderMain(tasks) {
 
   // ON HOLD (collapsed)
   if (onhold.length) {
-    html += `
-      <div class="collapse">
-        <button class="collapse-btn" onclick="toggle(this)">
-          <span class="cl">🟣 <span>On hold</span> <span class="sub">${onhold.length} tasks · chỉ mở khi cần ra quyết định</span></span>
-          <span class="caret">▼</span>
-        </button>
-        <div class="collapse-content"><div class="oh-list">`;
+    html += `<div class="section-block">
+      <div class="section-head" style="color:var(--purple)">
+        <span>🟣 On hold</span><span class="section-count">${onhold.length} tasks</span>
+      </div><div class="ac-list">`;
     onhold.forEach(t => {
       const idx = _taskStore.indexOf(t);
-      html += `
-          <div class="oh-item" onclick="openDrawer(${idx})">
-            <div class="oh-dot" style="background:${t.waitingFor ? 'var(--blue)' : 'var(--purple)'}"></div>
-            <div>
-              <div class="oh-title">${esc(t.task)}</div>
-              <div class="oh-note">${esc(t.nextAction || t.description || 'Chưa có next action')}${t.waitingFor ? ` · 🔵 Chờ: ${esc(t.waitingFor)}` : ''}</div>
-            </div>
-          </div>`;
+      const ds = t.deadline ? deadlineStatus(t.deadline) : null;
+      html += `<div class="ac-card" onclick="openDrawer(${idx})" style="border-left:3px solid var(--purple);cursor:pointer">
+        <div class="ac-main">
+          <div class="ac-title">${esc(t.task)}</div>
+          <div class="ac-sub">${esc(t.project||'')}${t.description ? ' · ' + esc(t.description.slice(0,80)) : ''}</div>
+          ${t.nextAction ? `<div style="margin-top:6px;font-size:11px;color:var(--purple);font-weight:600">⏸ ${esc(t.nextAction)}</div>` : ''}
+          ${t.waitingFor ? `<div style="margin-top:4px"><span class="wf-chip">🔵 Chờ: ${esc(t.waitingFor)}</span></div>` : ''}
+          ${ds ? `<div class="dl-badge dl-${ds.type}" style="margin-top:6px">${ds.label}</div>` : ''}
+        </div>
+      </div>`;
     });
-    html += `</div></div></div>`;
+    html += `</div></div>`;
   }
 
-  // NEED MORE INFO (collapsed)
+  // NEED MORE INFO
   if (nmi.length) {
-    html += `
-      <div class="collapse">
-        <button class="collapse-btn" onclick="toggle(this)">
-          <span class="cl">⚪ <span>Need More Info</span> <span class="sub">${nmi.length} tasks · chưa đủ thông tin để hành động</span></span>
-          <span class="caret">▼</span>
-        </button>
-        <div class="collapse-content"><div class="oh-list">`;
+    html += `<div class="section-block">
+      <div class="section-head" style="color:var(--text2)">
+        <span>⚪ Need More Info</span><span class="section-count">${nmi.length} tasks</span>
+      </div><div class="ac-list">`;
     nmi.forEach(t => {
       const idx = _taskStore.indexOf(t);
-      html += `
-          <div class="oh-item" onclick="openDrawer(${idx})">
-            <div class="oh-dot" style="background:var(--text3)"></div>
-            <div>
-              <div class="oh-title">${esc(t.task)}</div>
-              <div class="oh-note">Không có next action rõ ràng${t.waitingFor ? ` · Chờ: ${esc(t.waitingFor)}` : ''}</div>
-            </div>
-          </div>`;
+      const ds = t.deadline ? deadlineStatus(t.deadline) : null;
+      html += `<div class="ac-card" onclick="openDrawer(${idx})" style="border-left:3px solid var(--text3);cursor:pointer">
+        <div class="ac-main">
+          <div class="ac-title">${esc(t.task)}</div>
+          <div class="ac-sub">${esc(t.project||'')}${t.description ? ' · ' + esc(t.description.slice(0,80)) : ''}</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--red);font-weight:600">⚠️ Chưa đủ thông tin để hành động</div>
+          ${t.waitingFor ? `<div style="margin-top:4px"><span class="wf-chip">🔵 Chờ: ${esc(t.waitingFor)}</span></div>` : ''}
+          ${ds ? `<div class="dl-badge dl-${ds.type}" style="margin-top:6px">${ds.label}</div>` : ''}
+        </div>
+      </div>`;
     });
-    html += `</div></div></div>`;
+    html += `</div></div>`;
   }
 
   document.getElementById('main-panel').innerHTML = html;
