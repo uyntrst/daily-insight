@@ -1590,7 +1590,7 @@ function completeTaskFromDrawer() {
   // Mark done
   t.status = 'Done'; t.group = 'done';
   gsWriteBack({ action:'updateStatus', task:t.task, status:'Done' });
-  driveAutoSave();
+  saveTasksToStorage();
   showToast(`🎉 Hoàn thành: ${t.task}`, 'success', 3500);
   closeDrawer();
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
