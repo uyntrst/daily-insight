@@ -1926,8 +1926,24 @@ async function gsAutoLoad() {
     const data = await resp.json();
 
     if (data.tasks?.length) {
-      // Re-derive group from status to ensure correctness after Sheets round-trip
-      const tasks = data.tasks.map(t => ({ ...t, group: getStatusGroup(t.status) }));
+      // Re-derive group from status, then merge with localStorage status overrides
+      let tasks = data.tasks.map(t => ({ ...t, group: getStatusGroup(t.status) }));
+      try {
+        const lsSaved = JSON.parse(localStorage.getItem('_taskStore') || '[]');
+        if (lsSaved.length) {
+          const lsMap = {};
+          lsSaved.forEach(t => { lsMap[t.task] = t; });
+          tasks = tasks.map(t => {
+            const ls = lsMap[t.task];
+            if (ls && ls.status !== t.status) {
+              // localStorage has a newer status — use it
+              return { ...t, status: ls.status, group: getStatusGroup(ls.status) };
+            }
+            return t;
+          });
+        }
+      } catch {}
+
       _taskStore = tasks;
       _currentFileName = 'Google Sheets';
       document.getElementById('dropzone').style.display = 'none';
