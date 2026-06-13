@@ -1,11 +1,12 @@
 {
   "version": "0.0.1",
+  "autoPort": true,
   "configurations": [
     {
       "name": "daily-insight",
-      "runtimeExecutable": "ruby",
-      "runtimeArgs": ["-run", "-e", "httpd", "/Users/uynnewin/workspace/daily-insight", "-p", "3457"],
-      "port": 3457
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server"],
+      "cwd": "/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App"
     }
   ]
 }
