@@ -1908,7 +1908,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('gs-script-url').value = _gsConfig.scriptUrl;
   }
 
-  // Load tasks from localStorage — source of truth after first import
+  // Load tasks from localStorage first; if empty + scriptUrl configured → load from Sheets
   try {
     const saved = localStorage.getItem('_taskStore');
     const fileName = localStorage.getItem('_fileName') || 'Local';
@@ -1924,9 +1924,13 @@ window.addEventListener('DOMContentLoaded', () => {
         btn.innerHTML = `✅ ${esc(fileName)}`;
         const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
         renderMood(active); renderSidebar(active); renderMain(active);
+        return;
       }
     }
   } catch(e) { console.warn('restore failed', e); }
+
+  // localStorage trống + có Apps Script → load từ Sheets (trình duyệt mới)
+  if (_gsConfig.scriptUrl) gsAutoLoad();
 });
 
 function extractSheetId(urlOrId) {
