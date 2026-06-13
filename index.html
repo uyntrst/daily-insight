@@ -2024,6 +2024,16 @@ window.addEventListener('DOMContentLoaded', () => {
   if (_gsConfig.scriptUrl) gsAutoLoad();
 });
 
+// Auto-sync when tab becomes visible again (throttled to once per 30s)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!_gsConfig.scriptUrl || !_taskStore.length) return;
+  const now = Date.now();
+  if (now - _lastVisibilitySync < 30000) return;
+  _lastVisibilitySync = now;
+  gsSilentSync();
+});
+
 function extractSheetId(urlOrId) {
   const m = urlOrId.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : urlOrId.trim();
@@ -2184,64 +2194,80 @@ async function gsAutoLoad() {
   if (!_gsConfig.scriptUrl) return;
   try {
     showToast('⏳ Đang load data từ Sheets…');
-    const resp = await fetch(_gsConfig.scriptUrl);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-
-    if (data.tasks?.length) {
-      // Re-derive group from status, then merge with localStorage status overrides
-      let tasks = data.tasks.map(t => ({ ...t, group: getStatusGroup(t.status) }));
-      try {
-        const lsSaved = JSON.parse(localStorage.getItem('_taskStore') || '[]');
-        if (lsSaved.length) {
-          const lsMap = {};
-          lsSaved.forEach(t => { lsMap[t.task] = t; });
-          tasks = tasks.map(t => {
-            const ls = lsMap[t.task];
-            if (ls && ls.status !== t.status) {
-              // localStorage has a newer status — use it
-              return { ...t, status: ls.status, group: getStatusGroup(ls.status) };
-            }
-            return t;
-          });
-        }
-      } catch {}
-
-      _taskStore = tasks;
-      _currentFileName = 'Google Sheets';
-      document.getElementById('dropzone').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'grid';
-      const btn = document.getElementById('import-btn');
-      btn.className = 'btn btn-ghost has-file';
-      btn.innerHTML = `✅ Google Sheets`;
-      const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
-      renderMood(active); renderSidebar(active); renderMain(active);
-      showToast(`✅ Đã load ${data.tasks.length} tasks từ Sheets`, 'success');
-    } else {
-      // Fallback to localStorage if Sheets has no tasks yet
-      const saved = localStorage.getItem('_taskStore');
-      if (saved) {
-        const tasks = JSON.parse(saved);
-        if (tasks?.length) {
-          _taskStore = tasks; _currentFileName = localStorage.getItem('_fileName') || 'Local';
-          document.getElementById('dropzone').style.display = 'none';
-          document.getElementById('dashboard').style.display = 'grid';
-          const btn = document.getElementById('import-btn');
-          btn.className = 'btn btn-ghost has-file';
-          btn.innerHTML = `✅ ${esc(_currentFileName)}`;
-          const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
-          renderMood(active); renderSidebar(active); renderMain(active);
-        }
-      }
+    const merged = await _gsFetchAndMerge();
+    if (merged) {
+      showToast(`✅ Đã load ${merged.length} tasks từ Sheets`, 'success');
     }
-    if (data.worklogs) Object.entries(data.worklogs).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-    if (data.interrupts) Object.entries(data.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
   } catch(err) {
     console.warn('gsAutoLoad failed:', err);
-    // Fallback to localStorage on error
-    const saved = localStorage.getItem('_taskStore');
-    if (saved) { try { const t = JSON.parse(saved); if (t?.length) { _taskStore=t; document.getElementById('dropzone').style.display='none'; document.getElementById('dashboard').style.display='grid'; const active=t.filter(x=>x.group!=='done'&&x.hidden!=='ok'); renderMood(active);renderSidebar(active);renderMain(active); } } catch {} }
+    _gsApplyLocalFallback();
   }
+}
+
+// Fetch from Sheets and merge — Sheets wins (source of truth).
+// Locally-added tasks not in Sheets are appended.
+// Returns final task array, or null if Sheets had no data.
+async function _gsFetchAndMerge() {
+  const resp = await fetch(_gsConfig.scriptUrl + '?_=' + Date.now());
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const data = await resp.json();
+
+  if (data.worklogs) Object.entries(data.worklogs).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+  if (data.interrupts) Object.entries(data.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+
+  if (!data.tasks?.length) return null;
+
+  // Sheets is source of truth — use its data directly
+  let tasks = data.tasks.map(t => ({ ...t, group: getStatusGroup(t.status) }));
+
+  // Append locally-added tasks that don't exist in Sheets yet
+  try {
+    const lsSaved = JSON.parse(localStorage.getItem('_taskStore') || '[]');
+    if (lsSaved.length) {
+      const sheetsNames = new Set(tasks.map(t => t.task));
+      const localOnly = lsSaved.filter(t => !sheetsNames.has(t.task));
+      if (localOnly.length) tasks = [...tasks, ...localOnly];
+    }
+  } catch {}
+
+  _taskStore = tasks;
+  _currentFileName = 'Google Sheets';
+  localStorage.setItem('_taskStore', JSON.stringify(tasks));
+  localStorage.setItem('_fileName', 'Google Sheets');
+  document.getElementById('dropzone').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'grid';
+  const btn = document.getElementById('import-btn');
+  btn.className = 'btn btn-ghost has-file';
+  btn.innerHTML = `✅ Google Sheets`;
+  const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
+  renderMood(active); renderSidebar(active); renderMain(active);
+  return tasks;
+}
+
+// Silent background sync when tab regains focus — no loading toast
+let _lastVisibilitySync = 0;
+async function gsSilentSync() {
+  if (!_gsConfig.scriptUrl || !_taskStore.length) return;
+  try {
+    const tasks = await _gsFetchAndMerge();
+    if (tasks) showToast('🔄 Đã sync từ Sheets', 'success', 2000);
+  } catch(err) {
+    console.warn('gsSilentSync failed:', err);
+  }
+}
+
+function _gsApplyLocalFallback() {
+  const saved = localStorage.getItem('_taskStore');
+  if (!saved) return;
+  try {
+    const t = JSON.parse(saved);
+    if (!t?.length) return;
+    _taskStore = t;
+    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'grid';
+    const active = t.filter(x => x.group !== 'done' && x.hidden !== 'ok');
+    renderMood(active); renderSidebar(active); renderMain(active);
+  } catch {}
 }
 
 // Load stored worklogs + interrupts from Sheets via Apps Script doGet
