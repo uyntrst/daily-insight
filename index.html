@@ -659,6 +659,11 @@
         Drive
       </button>
 
+      <!-- Force sync to Sheets -->
+      <button class="btn btn-ghost" id="force-sync-btn" onclick="forceSyncToSheets()" style="display:none;gap:5px" title="Lưu toàn bộ tasks lên Google Sheets">
+        ☁️ Lưu Sheets
+      </button>
+
       <!-- Done tasks button -->
       <button class="btn btn-ghost" id="done-btn" onclick="toggleDonePage()" style="display:none">
         ✅ Done <span id="done-count" style="background:var(--green-bg);color:var(--green-text);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:2px">0</span>
@@ -1274,6 +1279,9 @@ function updateDoneCount() {
   const badge = document.getElementById('done-count');
   if (btn) btn.style.display = done.length ? 'inline-flex' : 'none';
   if (badge) badge.textContent = done.length;
+  // Show sync button when we have tasks and a script URL
+  const syncBtn = document.getElementById('force-sync-btn');
+  if (syncBtn) syncBtn.style.display = (_taskStore.length && _gsConfig.scriptUrl) ? 'inline-flex' : 'none';
 }
 
 function toggleDonePage() {
@@ -1926,6 +1934,7 @@ window.addEventListener('DOMContentLoaded', () => {
         btn.innerHTML = `✅ ${esc(fileName)}`;
         const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
         renderMood(active); renderSidebar(active); renderMain(active);
+        updateDoneCount();
         return;
       }
     }
@@ -2057,8 +2066,37 @@ async function quickConnectGs() {
 // Save all tasks to Sheets
 async function saveTasksToSheets() {
   if (!_gsConfig.scriptUrl || !_taskStore.length) return;
-  // No sheetId needed — Apps Script uses getActiveSpreadsheet()
   gsWriteBack({ action: 'saveTasks', tasks: _taskStore });
+}
+
+// Manual force-sync: POST then verify via GET after 3s
+async function forceSyncToSheets() {
+  if (!_gsConfig.scriptUrl || !_taskStore.length) { showToast('Không có data để sync', 'error'); return; }
+  const btn = document.getElementById('force-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu…'; }
+  try {
+    await fetch(_gsConfig.scriptUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveTasks', tasks: _taskStore }),
+    });
+    showToast('📤 Đã gửi lên Sheets, đang xác nhận…');
+    // Verify after 3s by re-fetching
+    await new Promise(r => setTimeout(r, 3000));
+    const resp = await fetch(_gsConfig.scriptUrl);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.tasks?.length) {
+        showToast(`✅ Sheets đã có ${data.tasks.length} tasks — trình duyệt khác sẽ load được!`, 'success', 4000);
+      } else {
+        showToast('⚠️ Sheets vẫn trống — kiểm tra Apps Script doPost', 'error', 5000);
+      }
+    }
+  } catch(err) {
+    showToast('❌ Sync thất bại: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Lưu Sheets'; }
+  }
 }
 
 // Auto-load tasks + worklogs + interrupts from Sheets on startup
