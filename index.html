@@ -1890,10 +1890,12 @@ function toggle(btn) {
 }
 
 // ── GOOGLE SHEETS INTEGRATION ──────────────────────────────────────────────
+const _DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdVb8QCExnO4XMyGxGlcFpSfKrKAQFhzAYYJqW5M8lzGcLS5LzOq-9YIJWDeLe-ljP/exec';
+
 const _gsConfig = {
-  sheetUrl: localStorage.getItem('gs_sheet_url') || '',
-  sheetName: localStorage.getItem('gs_sheet_name') || 'Kanban carry-over',
-  scriptUrl: localStorage.getItem('gs_script_url') || '',
+  sheetUrl:  localStorage.getItem('gs_sheet_url')   || '',
+  sheetName: localStorage.getItem('gs_sheet_name')  || 'Kanban carry-over',
+  scriptUrl: localStorage.getItem('gs_script_url')  || _DEFAULT_SCRIPT_URL,
   connected: false,
 };
 
