@@ -617,6 +617,80 @@
   .toast.show { transform:translateY(0); opacity:1; }
   .toast.success { background:var(--green); }
   .toast.error   { background:var(--red); }
+
+  /* ── SECTION BLOCK (On Hold / Need More Info) ── */
+  .section-block { display:flex; flex-direction:column; gap:0; }
+  .section-head {
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+    font-size:13px; font-weight:700;
+  }
+  .section-count {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:20px; padding:2px 9px; font-size:11px; color:var(--text2); font-weight:500;
+  }
+  .section-line { flex:1; height:1px; background:var(--border); }
+  .ac-list { display:flex; flex-direction:column; gap:6px; }
+
+  /* Card used for On Hold / Need More Info — mirrors .ac style */
+  .ac-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px 12px 17px;
+    position:relative; overflow:hidden; transition:all .15s;
+    box-shadow: var(--shadow-sm);
+  }
+  .ac-card:hover { box-shadow:var(--shadow); transform:translateX(2px); }
+  .ac-main { display:flex; flex-direction:column; gap:0; }
+  .ac-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.5; margin-bottom:2px; }
+  .ac-sub   { font-size:11px; color:var(--text2); line-height:1.5; }
+
+  /* Waiting-for chip */
+  .wf-chip {
+    display:inline-flex; align-items:center; gap:4px;
+    background:var(--blue-bg); border:1px solid var(--blue-border);
+    border-radius:5px; padding:2px 8px; font-size:10px; font-weight:600; color:var(--blue-text);
+  }
+
+  /* Deadline badge (inline, inside cards) */
+  .dl-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    border-radius:5px; padding:2px 8px; font-size:10px; font-weight:700;
+  }
+  .dl-overdue { background:var(--red);    color:#fff; }
+  .dl-soon    { background:var(--amber);  color:#fff; }
+  .dl-ok      { background:var(--surface2); border:1px solid var(--border); color:var(--text2); }
+
+  /* ── ADD TASK MODAL ── */
+  .modal-backdrop {
+    position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:250;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .modal-backdrop.open { opacity:1; pointer-events:all; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:28px 28px 22px; width:min(520px,92vw);
+    box-shadow:0 24px 64px rgba(0,0,0,.15);
+    transform:translateY(12px) scale(.97); opacity:0; pointer-events:none;
+    transition:all .22s cubic-bezier(.4,0,.2,1);
+  }
+  .modal-backdrop.open .modal { transform:translateY(0) scale(1); opacity:1; pointer-events:all; }
+  .modal-title { font-size:15px; font-weight:800; color:var(--text); margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; }
+  .modal-close { background:none; border:none; font-size:16px; cursor:pointer; color:var(--text3); padding:2px 6px; border-radius:6px; }
+  .modal-close:hover { background:var(--surface2); color:var(--text); }
+  .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .modal-field { display:flex; flex-direction:column; gap:5px; }
+  .modal-field.full { grid-column:1/-1; }
+  .modal-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); }
+  .modal-input, .modal-select, .modal-textarea {
+    border:1px solid var(--border); border-radius:8px; padding:9px 11px;
+    font-size:13px; font-family:var(--font); color:var(--text); background:var(--surface2);
+    outline:none; transition:all .15s; width:100%; box-sizing:border-box;
+  }
+  .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
+    border-color:var(--blue); background:var(--surface); box-shadow:0 0 0 3px rgba(37,99,235,.1);
+  }
+  .modal-textarea { resize:vertical; min-height:72px; line-height:1.6; }
+  .modal-footer { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -647,23 +721,6 @@
     <div class="topbar-right">
       <span class="mood-chip" id="mood-chip">⏳ Chưa có dữ liệu</span>
 
-      <!-- Google Sheets connect button -->
-      <button class="btn btn-sheets" id="gs-btn" onclick="toggleGsPanel()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-        Google Sheets
-      </button>
-
-      <!-- Google Drive button -->
-      <button class="btn btn-ghost" id="drive-btn" onclick="toggleDrivePanel()" style="gap:5px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg>
-        Drive
-      </button>
-
-      <!-- Force sync to Sheets -->
-      <button class="btn btn-ghost" id="force-sync-btn" onclick="forceSyncToSheets()" style="display:none;gap:5px" title="Lưu toàn bộ tasks lên Google Sheets">
-        ☁️ Lưu Sheets
-      </button>
-
       <!-- Done tasks button -->
       <button class="btn btn-ghost" id="done-btn" onclick="toggleDonePage()" style="display:none">
         ✅ Done <span id="done-count" style="background:var(--green-bg);color:var(--green-text);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:2px">0</span>
@@ -676,9 +733,19 @@
 
       <!-- Import Excel button -->
       <button class="btn btn-ghost" id="import-btn" onclick="document.getElementById('file-input').click()">
-        📂 Import Excel
+        📂 Import
       </button>
       <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+
+      <!-- Settings: Sheets + Drive + Sync -->
+      <button class="btn btn-ghost" id="gs-btn" onclick="toggleGsPanel()" title="Google Sheets / Drive settings" style="gap:5px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+        Settings
+      </button>
+      <!-- hidden drive btn kept for JS compat -->
+      <button id="drive-btn" onclick="toggleDrivePanel()" style="display:none"></button>
+      <!-- hidden force-sync btn kept for JS compat -->
+      <button id="force-sync-btn" onclick="forceSyncToSheets()" style="display:none"></button>
     </div>
   </header>
 
@@ -725,6 +792,19 @@
     <div class="gs-tip">
       💡 Sheet phải được chia sẻ <strong>"Anyone with the link can view"</strong>.<br>
       Để write-back (update status, next action), cần deploy <a onclick="showAppsScriptHelp()">Apps Script Web App</a>.
+    </div>
+
+    <!-- Force sync -->
+    <div class="gs-section">
+      <div class="gs-section-head">☁️ Đồng bộ</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="forceSyncToSheets();closeGsPanel()" style="flex:1;justify-content:center">
+          ☁️ Lưu tất cả lên Sheets
+        </button>
+        <button class="btn btn-ghost" onclick="gsAutoLoad();closeGsPanel()" style="flex:1;justify-content:center">
+          🔄 Load lại từ Sheets
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1225,11 +1305,11 @@ function renderMain(tasks) {
     html += `</div></div>`;
   }
 
-  // ON HOLD (collapsed)
+  // ON HOLD
   if (onhold.length) {
     html += `<div class="section-block">
       <div class="section-head" style="color:var(--purple)">
-        <span>🟣 On hold</span><span class="section-count">${onhold.length} tasks</span>
+        <span>🟣</span><span>On hold</span><span class="section-count">${onhold.length} tasks</span><div class="section-line"></div>
       </div><div class="ac-list">`;
     onhold.forEach(t => {
       const idx = _taskStore.indexOf(t);
@@ -1251,7 +1331,7 @@ function renderMain(tasks) {
   if (nmi.length) {
     html += `<div class="section-block">
       <div class="section-head" style="color:var(--text2)">
-        <span>⚪ Need More Info</span><span class="section-count">${nmi.length} tasks</span>
+        <span>⚪</span><span>Need More Info</span><span class="section-count">${nmi.length} tasks</span><div class="section-line"></div>
       </div><div class="ac-list">`;
     nmi.forEach(t => {
       const idx = _taskStore.indexOf(t);
