@@ -799,7 +799,7 @@
       <div class="gs-section-head">☁️ Đồng bộ</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" onclick="forceSyncToSheets();closeGsPanel()" style="flex:1;justify-content:center">
-          ☁️ Lưu tất cả lên Sheets
+          ☁️ Kiểm tra kết nối
         </button>
         <button class="btn btn-ghost" onclick="gsAutoLoad();closeGsPanel()" style="flex:1;justify-content:center">
           🔄 Load lại từ Sheets
@@ -2155,37 +2155,27 @@ async function quickConnectGs() {
 
 // Save all tasks to Sheets
 async function saveTasksToSheets() {
-  if (!_gsConfig.scriptUrl || !_taskStore.length) return;
-  gsWriteBack({ action: 'saveTasks', tasks: _taskStore });
+  // No-op: status changes are pushed individually via gsWriteBack GET requests
 }
 
-// Manual force-sync: POST then verify via GET after 3s
+// Verify connection: GET from Sheets and confirm tasks are readable
 async function forceSyncToSheets() {
-  if (!_gsConfig.scriptUrl || !_taskStore.length) { showToast('Không có data để sync', 'error'); return; }
+  if (!_gsConfig.scriptUrl) { showToast('Chưa có Apps Script URL', 'error'); return; }
   const btn = document.getElementById('force-sync-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu…'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang kiểm tra…'; }
   try {
-    // no-cors = fire-and-forget (Apps Script redirects, cors mode fails on redirect)
-    fetch(_gsConfig.scriptUrl, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveTasks', tasks: _taskStore }),
-    });
-    // Wait 2s then verify via GET — doGet fallback to Kanban means data always present
-    await new Promise(r => setTimeout(r, 2000));
     const resp = await fetch(_gsConfig.scriptUrl + '?_=' + Date.now());
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.tasks?.length) {
-        showToast(`✅ Sheets có ${data.tasks.length} tasks (source: ${data.source || 'tasks'}) — browser khác sẽ load được!`, 'success', 4000);
-      } else {
-        showToast('⚠️ Sheets chưa có data — thử lại sau vài giây', 'error', 4000);
-      }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.tasks?.length) {
+      showToast(`✅ Kết nối OK — ${data.tasks.length} tasks từ Sheets (${data.source})`, 'success', 3500);
+    } else {
+      showToast('⚠️ Kết nối được nhưng Sheets chưa có tasks', 'error', 4000);
     }
   } catch(err) {
-    showToast('❌ Lỗi: ' + err.message, 'error', 4000);
+    showToast('❌ Không kết nối được Sheets: ' + err.message, 'error', 4000);
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Lưu Sheets'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Kiểm tra Sheets'; }
   }
 }
 
@@ -2291,16 +2281,19 @@ async function gsLoadStoredData() {
   }
 }
 
-// Write-back via Apps Script (no-cors fire-and-forget — Apps Script redirects block cors mode)
+// Write-back via GET params — avoids POST redirect body loss issue
+// Apps Script handles: updateStatus, addWorkLog, saveInterrupt via doGet params
 async function gsWriteBack(payload) {
   if (!_gsConfig.scriptUrl) return;
   try {
-    fetch(_gsConfig.scriptUrl, {
-      method: 'POST',
-      mode:   'no-cors',
-      headers: {'Content-Type': 'text/plain'},
-      body: JSON.stringify(payload),
+    const params = new URLSearchParams();
+    Object.entries(payload).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && k !== 'tasks') {
+        params.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+      }
     });
+    params.set('_', Date.now());
+    fetch(_gsConfig.scriptUrl + '?' + params.toString());
   } catch(err) {
     console.warn('GSheets write-back failed:', err);
   }
