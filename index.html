@@ -2165,19 +2165,25 @@ async function forceSyncToSheets() {
   const btn = document.getElementById('force-sync-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu…'; }
   try {
-    // Use cors (text/plain = simple request, no preflight) so we can read the response
-    const postResp = await fetch(_gsConfig.scriptUrl, {
-      method: 'POST',
-      mode: 'cors',
+    // no-cors = fire-and-forget (Apps Script redirects, cors mode fails on redirect)
+    fetch(_gsConfig.scriptUrl, {
+      method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveTasks', tasks: _taskStore }),
     });
-    if (!postResp.ok) throw new Error('HTTP ' + postResp.status);
-    const result = await postResp.json();
-    if (result.error) throw new Error(result.error);
-    showToast(`✅ Đã lưu ${_taskStore.length} tasks lên Sheets — trình duyệt khác sẽ load được!`, 'success', 4000);
+    // Wait 2s then verify via GET — doGet fallback to Kanban means data always present
+    await new Promise(r => setTimeout(r, 2000));
+    const resp = await fetch(_gsConfig.scriptUrl + '?_=' + Date.now());
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.tasks?.length) {
+        showToast(`✅ Sheets có ${data.tasks.length} tasks (source: ${data.source || 'tasks'}) — browser khác sẽ load được!`, 'success', 4000);
+      } else {
+        showToast('⚠️ Sheets chưa có data — thử lại sau vài giây', 'error', 4000);
+      }
+    }
   } catch(err) {
-    showToast('❌ Lưu Sheets thất bại: ' + err.message, 'error', 5000);
+    showToast('❌ Lỗi: ' + err.message, 'error', 4000);
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Lưu Sheets'; }
   }
@@ -2285,13 +2291,13 @@ async function gsLoadStoredData() {
   }
 }
 
-// Write-back via Apps Script (cors + text/plain = simple request, no preflight)
+// Write-back via Apps Script (no-cors fire-and-forget — Apps Script redirects block cors mode)
 async function gsWriteBack(payload) {
   if (!_gsConfig.scriptUrl) return;
   try {
-    await fetch(_gsConfig.scriptUrl, {
+    fetch(_gsConfig.scriptUrl, {
       method: 'POST',
-      mode:   'cors',
+      mode:   'no-cors',
       headers: {'Content-Type': 'text/plain'},
       body: JSON.stringify(payload),
     });
