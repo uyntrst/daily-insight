@@ -2165,25 +2165,19 @@ async function forceSyncToSheets() {
   const btn = document.getElementById('force-sync-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu…'; }
   try {
-    await fetch(_gsConfig.scriptUrl, {
-      method: 'POST', mode: 'no-cors',
+    // Use cors (text/plain = simple request, no preflight) so we can read the response
+    const postResp = await fetch(_gsConfig.scriptUrl, {
+      method: 'POST',
+      mode: 'cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveTasks', tasks: _taskStore }),
     });
-    showToast('📤 Đã gửi lên Sheets, đang xác nhận…');
-    // Verify after 3s by re-fetching
-    await new Promise(r => setTimeout(r, 3000));
-    const resp = await fetch(_gsConfig.scriptUrl);
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.tasks?.length) {
-        showToast(`✅ Sheets đã có ${data.tasks.length} tasks — trình duyệt khác sẽ load được!`, 'success', 4000);
-      } else {
-        showToast('⚠️ Sheets vẫn trống — kiểm tra Apps Script doPost', 'error', 5000);
-      }
-    }
+    if (!postResp.ok) throw new Error('HTTP ' + postResp.status);
+    const result = await postResp.json();
+    if (result.error) throw new Error(result.error);
+    showToast(`✅ Đã lưu ${_taskStore.length} tasks lên Sheets — trình duyệt khác sẽ load được!`, 'success', 4000);
   } catch(err) {
-    showToast('❌ Sync thất bại: ' + err.message, 'error');
+    showToast('❌ Lưu Sheets thất bại: ' + err.message, 'error', 5000);
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Lưu Sheets'; }
   }
@@ -2291,13 +2285,13 @@ async function gsLoadStoredData() {
   }
 }
 
-// Write-back via Apps Script
+// Write-back via Apps Script (cors + text/plain = simple request, no preflight)
 async function gsWriteBack(payload) {
   if (!_gsConfig.scriptUrl) return;
   try {
     await fetch(_gsConfig.scriptUrl, {
       method: 'POST',
-      mode:   'no-cors',
+      mode:   'cors',
       headers: {'Content-Type': 'text/plain'},
       body: JSON.stringify(payload),
     });
