@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PM/PO Daily Insight</title>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async></script>
-<script src="https://apis.google.com/js/api.js" async></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -737,44 +735,32 @@
       </button>
       <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
 
-      <!-- Settings: Sheets + Drive + Sync -->
-      <button class="btn btn-ghost" id="gs-btn" onclick="toggleGsPanel()" title="Google Sheets / Drive settings" style="gap:5px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
-        Settings
+      <!-- GitHub Gist sync -->
+      <button class="btn btn-ghost" id="gs-btn" onclick="toggleGistPanel()" title="GitHub Gist — lưu trữ đám mây" style="gap:5px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        Gist
       </button>
-      <!-- hidden drive btn kept for JS compat -->
-      <button id="drive-btn" onclick="toggleDrivePanel()" style="display:none"></button>
-      <!-- hidden force-sync btn kept for JS compat -->
-      <button id="force-sync-btn" onclick="forceSyncToSheets()" style="display:none"></button>
     </div>
   </header>
 
-  <!-- ── GOOGLE SHEETS PANEL ── -->
-  <div class="gs-panel-overlay" id="gs-overlay" onclick="closeGsPanel()"></div>
+  <!-- ── GITHUB GIST PANEL ── -->
+  <div class="gs-panel-overlay" id="gs-overlay" onclick="closeGistPanel()"></div>
   <div class="gs-panel" id="gs-panel">
     <div class="gs-panel-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-      <span>Kết nối Google Sheets</span>
-      <button class="gs-panel-close" onclick="closeGsPanel()">✕</button>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      <span>GitHub Gist — lưu trữ đám mây</span>
+      <button class="gs-panel-close" onclick="closeGistPanel()">✕</button>
     </div>
 
     <div class="gs-section">
-      <div class="gs-section-head">📖 Nguồn dữ liệu (đọc)</div>
+      <div class="gs-section-head">🔑 Xác thực</div>
       <div>
-        <div class="gs-field-label">Google Sheets URL hoặc Sheet ID</div>
-        <input class="gs-input" id="gs-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." />
+        <div class="gs-field-label">Personal Access Token <a href="https://github.com/settings/tokens/new?scopes=gist&description=PM+PO+Daily+Insight" target="_blank" style="font-size:10px;color:var(--blue);margin-left:4px">Tạo token →</a></div>
+        <input class="gs-input" id="gist-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
       </div>
       <div>
-        <div class="gs-field-label">Tên sheet (mặc định: Kanban carry-over)</div>
-        <input class="gs-input" id="gs-sheet-name" placeholder="Kanban carry-over" value="Kanban carry-over" />
-      </div>
-    </div>
-
-    <div class="gs-section">
-      <div class="gs-section-head">✏️ Ghi ngược (write-back)</div>
-      <div>
-        <div class="gs-field-label">Apps Script Web App URL</div>
-        <input class="gs-input" id="gs-script-url" placeholder="https://script.google.com/macros/s/..." />
+        <div class="gs-field-label">Gist ID <span style="font-size:10px;color:var(--text3)">(để trống → tự tạo mới)</span></div>
+        <input class="gs-input" id="gist-id" placeholder="abc123def456..." />
       </div>
     </div>
 
@@ -784,66 +770,21 @@
     </div>
 
     <div class="gs-actions">
-      <button class="btn btn-primary" onclick="connectGSheets()">🔗 Kết nối &amp; Sync</button>
-      <button class="btn btn-ghost" onclick="syncGSheets()" id="gs-sync-btn" style="display:none">🔄 Sync ngay</button>
-      <button class="btn btn-ghost" onclick="disconnectGSheets()" id="gs-disconnect-btn" style="display:none" style="color:var(--red)">Ngắt kết nối</button>
+      <button class="btn btn-primary" onclick="connectGist()">🔗 Kết nối &amp; Sync</button>
+      <button class="btn btn-ghost" onclick="gistPull()" id="gs-sync-btn" style="display:none">⬇️ Pull</button>
+      <button class="btn btn-ghost" onclick="disconnectGist()" id="gs-disconnect-btn" style="display:none">Ngắt kết nối</button>
     </div>
 
     <div class="gs-tip">
-      💡 Sheet phải được chia sẻ <strong>"Anyone with the link can view"</strong>.<br>
-      Để write-back (update status, next action), cần deploy <a onclick="showAppsScriptHelp()">Apps Script Web App</a>.
+      💡 Token chỉ cần quyền <strong>gist</strong>. Data lưu vào 1 private Gist dưới tài khoản GitHub của bạn — bất kỳ browser nào đăng nhập đều đồng bộ được.
     </div>
 
-    <!-- Force sync -->
     <div class="gs-section">
-      <div class="gs-section-head">☁️ Đồng bộ</div>
+      <div class="gs-section-head">☁️ Đồng bộ thủ công</div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-primary" onclick="forceSyncToSheets();closeGsPanel()" style="flex:1;justify-content:center">
-          ☁️ Kiểm tra kết nối
-        </button>
-        <button class="btn btn-ghost" onclick="gsAutoLoad();closeGsPanel()" style="flex:1;justify-content:center">
-          🔄 Load lại từ Sheets
-        </button>
+        <button class="btn btn-primary" onclick="gistPull();closeGistPanel()" style="flex:1;justify-content:center">⬇️ Pull từ Gist</button>
+        <button class="btn btn-ghost" onclick="gistPush();closeGistPanel()" style="flex:1;justify-content:center">⬆️ Push lên Gist</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ── GOOGLE DRIVE PANEL (MCP via Claude) ── -->
-  <div class="gs-panel-overlay" id="drive-overlay" onclick="closeDrivePanel()"></div>
-  <div class="gs-panel" id="drive-panel">
-    <div class="gs-panel-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 19h20L12 2z"/><path d="M2 19l10-6 10 6"/><path d="M12 13V2"/></svg>
-      <span>Backup / Restore qua Claude</span>
-      <button class="gs-panel-close" onclick="closeDrivePanel()">✕</button>
-    </div>
-
-    <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:14px">
-      Claude lưu data lên Google Drive thay bạn — không cần OAuth hay setup gì.
-    </div>
-
-    <!-- Backup -->
-    <div class="gs-section">
-      <div class="gs-section-head">📤 Backup lên Drive</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.7">
-        1. Click <strong>Copy data</strong> để copy JSON<br>
-        2. Paste vào chat Claude và nói <em>"lưu lên Drive"</em>
-      </div>
-      <button class="btn btn-primary" onclick="mcpCopyBackup()" style="width:100%;justify-content:center">
-        📋 Copy data để backup
-      </button>
-    </div>
-
-    <!-- Restore -->
-    <div class="gs-section">
-      <div class="gs-section-head">📥 Restore từ Drive</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.7">
-        1. Nói với Claude: <em>"đọc file backup từ Drive"</em><br>
-        2. Claude sẽ trả về JSON → paste vào ô dưới
-      </div>
-      <textarea id="mcp-restore-input" class="gs-input" rows="4" placeholder='Paste JSON từ Claude vào đây...' style="font-family:monospace;font-size:11px;resize:vertical"></textarea>
-      <button class="btn btn-primary" onclick="mcpDoRestore()" style="width:100%;justify-content:center;margin-top:6px;background:var(--green)">
-        ✅ Restore data
-      </button>
     </div>
   </div>
 
@@ -903,10 +844,10 @@
     </div>
     <div class="dropzone-or">— hoặc —</div>
     <div class="gs-connect-card">
-      <h3>🔗 Kết nối trực tiếp từ Google Sheets</h3>
-      <input class="gs-input" id="gs-quick-url" placeholder="Dán Google Sheets URL vào đây..." />
+      <h3>☁️ Đồng bộ qua GitHub Gist</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">Dùng chung data trên nhiều browser — không cần upload file</p>
       <div class="gs-row">
-        <button class="btn btn-primary" style="flex:1" onclick="quickConnectGs()">Kết nối &amp; Load dữ liệu</button>
+        <button class="btn btn-primary" style="flex:1" onclick="toggleGistPanel()">Kết nối GitHub Gist →</button>
       </div>
     </div>
   </div>
@@ -1136,7 +1077,7 @@ let _currentFileName = '';
 
 function saveTasksToStorage() {
   try { localStorage.setItem('_taskStore', JSON.stringify(_taskStore)); localStorage.setItem('_fileName', _currentFileName); } catch {}
-  saveTasksToSheets();
+  gistAutoSave();
 }
 
 function renderDashboard(tasks, sheetName, fileName) {
@@ -1359,9 +1300,6 @@ function updateDoneCount() {
   const badge = document.getElementById('done-count');
   if (btn) btn.style.display = done.length ? 'inline-flex' : 'none';
   if (badge) badge.textContent = done.length;
-  // Show sync button when we have tasks and a script URL
-  const syncBtn = document.getElementById('force-sync-btn');
-  if (syncBtn) syncBtn.style.display = (_taskStore.length && _gsConfig.scriptUrl) ? 'inline-flex' : 'none';
 }
 
 function toggleDonePage() {
@@ -1402,7 +1340,7 @@ function undoneTask(idx) {
   const t = _taskStore[idx];
   if (!t) return;
   t.status = '01.In progress'; t.group = 'inprogress';
-  gsWriteBack({ action: 'updateStatus', task: t.task, status: t.status });
+  gistAutoSave();
   saveTasksToStorage();
   showToast(`↩ Đã mở lại: ${t.task}`, 'info');
   renderDonePage();
@@ -1497,7 +1435,7 @@ function markDone(idx) {
   const t = _taskStore[idx];
   if (!t) return;
   t.status = 'Done'; t.group = 'done';
-  gsWriteBack({ action:'updateStatus', task:t.task, status:'Done' });
+  gistAutoSave();
   saveTasksToStorage();
   showToast(`✅ Đã đánh dấu Done: ${t.task}`, 'success');
   // Re-render
@@ -1586,8 +1524,7 @@ function openDrawer(idx) {
   const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn</div><div class="dr-value">${esc(t.note)}</div></div>` : '';
 
   // Write-back row (only if GSheets connected)
-  const gsConnected = !!_gsConfig.scriptUrl;
-  const updateHtml = gsConnected ? `
+  const updateHtml = true ? `
     <div class="drawer-update-row">
       <select class="status-select" id="drawer-status-select" onchange="drawerUpdateStatus(${idx}, this.value)">
         <option value="">— Cập nhật trạng thái —</option>
@@ -1642,7 +1579,7 @@ function drawerUpdateStatus(idx, newStatus) {
   const t = _taskStore[idx];
   if (!t) return;
   t.status = newStatus; t.group = getStatusGroup(newStatus);
-  gsWriteBack({ action:'updateStatus', task:t.task, status:newStatus });
+  gistAutoSave();
   saveTasksToStorage();
   showToast(`✏️ Đã cập nhật: ${t.task} → ${newStatus}`, 'success');
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
@@ -1656,7 +1593,7 @@ function closeDrawer() {
   document.getElementById('interrupt-form').style.display = 'none';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); closeGsPanel(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); closeGistPanel(); } });
 
 // ── INTERRUPT BRAIN DUMP ────────────────────────────────────────────────────
 function interruptKey(name) { return 'intr_' + name.slice(0,80); }
@@ -1666,9 +1603,7 @@ function interruptGet(name) {
 function interruptSave(name, data) {
   const entry = { ...data, ts: new Date().toISOString() };
   localStorage.setItem(interruptKey(name), JSON.stringify(entry));
-  if (_gsConfig.scriptUrl) {
-    gsWriteBack({ action: 'saveInterrupt', taskId: name, ...entry });
-  }
+  gistAutoSave();
 }
 function interruptClear(name) {
   localStorage.removeItem(interruptKey(name));
@@ -1822,7 +1757,7 @@ function completeTaskFromDrawer() {
   interruptClear(t.task);
   // Mark done
   t.status = 'Done'; t.group = 'done';
-  gsWriteBack({ action:'updateStatus', task:t.task, status:'Done' });
+  gistAutoSave();
   saveTasksToStorage();
   showToast(`🎉 Hoàn thành: ${t.task}`, 'success', 3500);
   closeDrawer();
@@ -1841,10 +1776,7 @@ function wlSaveLog(taskId, entry) {
   const logs = wlGetLogs(taskId);
   logs.unshift(entry);
   localStorage.setItem(wlKey(taskId), JSON.stringify(logs));
-  driveAutoSave();
-  if (_gsConfig.scriptUrl) {
-    gsWriteBack({ action: 'addWorkLog', taskId, entry });
-  }
+  gistAutoSave();
 }
 
 function wlBuildPrompt(t) {
@@ -1977,28 +1909,19 @@ function toggle(btn) {
   btn.nextElementSibling.classList.toggle('open');
 }
 
-// ── GOOGLE SHEETS INTEGRATION ──────────────────────────────────────────────
-const _DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdVb8QCExnO4XMyGxGlcFpSfKrKAQFhzAYYJqW5M8lzGcLS5LzOq-9YIJWDeLe-ljP/exec';
-
-const _gsConfig = {
-  sheetUrl:  localStorage.getItem('gs_sheet_url')   || '',
-  sheetName: localStorage.getItem('gs_sheet_name')  || 'Kanban carry-over',
-  scriptUrl: localStorage.getItem('gs_script_url')  || _DEFAULT_SCRIPT_URL,
-  connected: false,
+// ── GITHUB GIST INTEGRATION ────────────────────────────────────────────────
+const _gistConfig = {
+  token:  localStorage.getItem('gist_token')  || '',
+  gistId: localStorage.getItem('gist_id')     || '',
 };
 
-// Restore saved config
-window.addEventListener('DOMContentLoaded', () => {
-  if (_gsConfig.sheetUrl) {
-    document.getElementById('gs-sheet-url').value = _gsConfig.sheetUrl;
-    document.getElementById('gs-sheet-name').value = _gsConfig.sheetName;
-    document.getElementById('gs-quick-url').value = _gsConfig.sheetUrl;
-  }
-  if (_gsConfig.scriptUrl) {
-    document.getElementById('gs-script-url').value = _gsConfig.scriptUrl;
-  }
+function gistConnected() { return !!(_gistConfig.token && _gistConfig.gistId); }
 
-  // Load tasks from localStorage first; if empty + scriptUrl configured → load from Sheets
+window.addEventListener('DOMContentLoaded', () => {
+  if (_gistConfig.token) document.getElementById('gist-token').value = _gistConfig.token;
+  if (_gistConfig.gistId) document.getElementById('gist-id').value = _gistConfig.gistId;
+  if (gistConnected()) _gistMarkConnected();
+
   try {
     const saved = localStorage.getItem('_taskStore');
     const fileName = localStorage.getItem('_fileName') || 'Local';
@@ -2015,292 +1938,160 @@ window.addEventListener('DOMContentLoaded', () => {
         const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
         renderMood(active); renderSidebar(active); renderMain(active);
         updateDoneCount();
+        if (gistConnected()) setTimeout(gistSilentPull, 800);
         return;
       }
     }
   } catch(e) { console.warn('restore failed', e); }
 
-  // localStorage trống + có Apps Script → load từ Sheets (trình duyệt mới)
-  if (_gsConfig.scriptUrl) gsAutoLoad();
+  if (gistConnected()) gistPull();
 });
 
-// Auto-sync when tab becomes visible again (throttled to once per 30s)
+let _lastVisibilitySync = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  if (!_gsConfig.scriptUrl || !_taskStore.length) return;
+  if (!gistConnected() || !_taskStore.length) return;
   const now = Date.now();
   if (now - _lastVisibilitySync < 30000) return;
   _lastVisibilitySync = now;
-  gsSilentSync();
+  gistSilentPull();
 });
 
-function extractSheetId(urlOrId) {
-  const m = urlOrId.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  return m ? m[1] : urlOrId.trim();
-}
-
-function getExportUrl(sheetId, sheetName) {
-  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-function toggleGsPanel() {
-  const panel   = document.getElementById('gs-panel');
+function toggleGistPanel() {
+  const panel = document.getElementById('gs-panel');
   const overlay = document.getElementById('gs-overlay');
-  const isOpen  = panel.classList.contains('open');
-  if (isOpen) { closeGsPanel(); } else { panel.classList.add('open'); overlay.classList.add('open'); }
+  panel.classList.contains('open') ? closeGistPanel() : (panel.classList.add('open'), overlay.classList.add('open'));
 }
 
-function closeGsPanel() {
+function closeGistPanel() {
   document.getElementById('gs-panel').classList.remove('open');
   document.getElementById('gs-overlay').classList.remove('open');
 }
 
-async function connectGSheets() {
-  const rawUrl    = document.getElementById('gs-sheet-url').value.trim();
-  const sheetName = document.getElementById('gs-sheet-name').value.trim() || 'Kanban carry-over';
-  const scriptUrl = document.getElementById('gs-script-url').value.trim();
-
-  if (!rawUrl) { showToast('⚠️ Vui lòng nhập Google Sheets URL', 'error'); return; }
-
-  const sheetId  = extractSheetId(rawUrl);
-  const exportUrl = getExportUrl(sheetId, sheetName);
-
-  showToast('⏳ Đang kết nối Google Sheets…');
-
+async function connectGist() {
+  const token  = document.getElementById('gist-token').value.trim();
+  const gistId = document.getElementById('gist-id').value.trim();
+  if (!token) { showToast('⚠️ Vui lòng nhập Personal Access Token', 'error'); return; }
+  showToast('⏳ Đang kết nối GitHub Gist…');
   try {
-    const resp = await fetch(exportUrl);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status} — kiểm tra sheet có public không`);
-    const buf  = await resp.arrayBuffer();
-    const wb   = XLSX.read(new Uint8Array(buf), {type:'array', cellDates:true});
-    const ws   = wb.Sheets[wb.SheetNames.find(n => n.toLowerCase().includes('kanban')) || wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
-
-    let hIdx = rows.findIndex(r => r && String(r[0]||'').toLowerCase().includes('task'));
-    if (hIdx < 0) hIdx = 0;
-
-    const tasks = rows.slice(hIdx+1).filter(r => r && r[0]).map((r, i) => {
-      const t = mapRow(r); t._rowIndex = hIdx + i + 2; return t;
-    });
-
-    // Save config
-    _gsConfig.sheetUrl = rawUrl; _gsConfig.sheetName = sheetName; _gsConfig.scriptUrl = scriptUrl; _gsConfig.connected = true;
-    localStorage.setItem('gs_sheet_url', rawUrl);
-    localStorage.setItem('gs_sheet_name', sheetName);
-    localStorage.setItem('gs_script_url', scriptUrl);
-
-    // Update UI
-    const gsBtn = document.getElementById('gs-btn');
-    gsBtn.className = 'btn btn-sheets connected';
-    gsBtn.innerHTML = `<span class="sync-dot"></span> Đã kết nối`;
-    document.getElementById('gs-status-row').style.display = 'flex';
-    document.getElementById('gs-status-text').textContent = `Đã sync lúc ${new Date().toLocaleTimeString('vi-VN')}`;
-    document.getElementById('gs-sync-btn').style.display = 'inline-flex';
-    document.getElementById('gs-disconnect-btn').style.display = 'inline-flex';
-
-    renderDashboard(tasks, sheetName, 'Google Sheets');
-    showToast(`✅ Đã load ${tasks.length} tasks từ Google Sheets`, 'success');
-    closeGsPanel();
-    gsLoadStoredData();
-
-    // No auto-sync back to original sheet — app is now the source of truth
-
+    let id = gistId;
+    if (!id) {
+      const resp = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
+        body: JSON.stringify({ description: 'PM/PO Daily Insight — task data', public: false, files: { 'tasks.json': { content: JSON.stringify(_taskStore.length ? _taskStore : []) } } })
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} — kiểm tra token có quyền gist không`);
+      const data = await resp.json();
+      id = data.id;
+      document.getElementById('gist-id').value = id;
+    } else {
+      const resp = await fetch(`https://api.github.com/gists/${id}`, {
+        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} — Gist ID không hợp lệ hoặc không có quyền`);
+    }
+    _gistConfig.token = token; _gistConfig.gistId = id;
+    localStorage.setItem('gist_token', token); localStorage.setItem('gist_id', id);
+    _gistMarkConnected();
+    if (_taskStore.length) {
+      await _gistPushRaw(token, id);
+      showToast(`✅ Đã kết nối & push ${_taskStore.length} tasks lên Gist`, 'success', 3500);
+    } else {
+      await _gistPullRaw(token, id);
+    }
+    closeGistPanel();
   } catch(err) {
     showToast(`❌ Lỗi kết nối: ${err.message}`, 'error', 5000);
   }
 }
 
-async function syncGSheets() {
-  if (!_gsConfig.sheetUrl) return;
-  const sheetId   = extractSheetId(_gsConfig.sheetUrl);
-  const exportUrl = getExportUrl(sheetId, _gsConfig.sheetName);
-  try {
-    const resp = await fetch(exportUrl + '&_=' + Date.now());
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const buf  = await resp.arrayBuffer();
-    const wb   = XLSX.read(new Uint8Array(buf), {type:'array', cellDates:true});
-    const ws   = wb.Sheets[wb.SheetNames.find(n => n.toLowerCase().includes('kanban')) || wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
-    let hIdx = rows.findIndex(r => r && String(r[0]||'').toLowerCase().includes('task'));
-    if (hIdx < 0) hIdx = 0;
-    const tasks = rows.slice(hIdx+1).filter(r => r && r[0]).map((r,i) => { const t=mapRow(r); t._rowIndex=hIdx+i+2; return t; });
-    renderDashboard(tasks, _gsConfig.sheetName, 'Google Sheets');
-    document.getElementById('gs-status-text').textContent = `Đã sync lúc ${new Date().toLocaleTimeString('vi-VN')}`;
-    showToast('🔄 Đã sync từ Google Sheets', 'success');
-  } catch(err) {
-    showToast(`❌ Sync thất bại: ${err.message}`, 'error');
-  }
+function _gistMarkConnected() {
+  const btn = document.getElementById('gs-btn');
+  btn.className = 'btn btn-sheets connected';
+  btn.innerHTML = `<span class="sync-dot"></span> Gist`;
+  document.getElementById('gs-status-row').style.display = 'flex';
+  document.getElementById('gs-status-text').textContent = `Gist ${_gistConfig.gistId.slice(0,8)}…`;
+  document.getElementById('gs-sync-btn').style.display = 'inline-flex';
+  document.getElementById('gs-disconnect-btn').style.display = 'inline-flex';
 }
 
-function disconnectGSheets() {
-  clearInterval(_gsConfig._interval);
-  _gsConfig.sheetUrl = ''; _gsConfig.sheetName = 'Kanban carry-over'; _gsConfig.scriptUrl = ''; _gsConfig.connected = false;
-  localStorage.removeItem('gs_sheet_url'); localStorage.removeItem('gs_sheet_name'); localStorage.removeItem('gs_script_url');
-  const gsBtn = document.getElementById('gs-btn');
-  gsBtn.className = 'btn btn-sheets';
-  gsBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Google Sheets`;
+function disconnectGist() {
+  _gistConfig.token = ''; _gistConfig.gistId = '';
+  localStorage.removeItem('gist_token'); localStorage.removeItem('gist_id');
+  const btn = document.getElementById('gs-btn');
+  btn.className = 'btn btn-ghost';
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg> Gist`;
   document.getElementById('gs-status-row').style.display = 'none';
   document.getElementById('gs-sync-btn').style.display = 'none';
   document.getElementById('gs-disconnect-btn').style.display = 'none';
-  showToast('Đã ngắt kết nối Google Sheets');
-  closeGsPanel();
+  showToast('Đã ngắt kết nối GitHub Gist');
+  closeGistPanel();
 }
 
-// Quick connect from empty state
-async function quickConnectGs() {
-  const url = document.getElementById('gs-quick-url').value.trim();
-  if (!url) { showToast('⚠️ Vui lòng nhập Google Sheets URL', 'error'); return; }
-  document.getElementById('gs-sheet-url').value = url;
-  await connectGSheets();
+async function _gistPushRaw(token, id) {
+  const snap = driveCollectAll();
+  const resp = await fetch(`https://api.github.com/gists/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
+    body: JSON.stringify({ files: { 'tasks.json': { content: JSON.stringify(snap) } } })
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  document.getElementById('gs-status-text').textContent = `Push lúc ${new Date().toLocaleTimeString('vi-VN')}`;
 }
 
-// Save all tasks to Sheets
-async function saveTasksToSheets() {
-  // No-op: status changes are pushed individually via gsWriteBack GET requests
-}
-
-// Verify connection: GET from Sheets and confirm tasks are readable
-async function forceSyncToSheets() {
-  if (!_gsConfig.scriptUrl) { showToast('Chưa có Apps Script URL', 'error'); return; }
-  const btn = document.getElementById('force-sync-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang kiểm tra…'; }
-  try {
-    const resp = await fetch(_gsConfig.scriptUrl + '?_=' + Date.now());
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    if (data.tasks?.length) {
-      showToast(`✅ Kết nối OK — ${data.tasks.length} tasks từ Sheets (${data.source})`, 'success', 3500);
-    } else {
-      showToast('⚠️ Kết nối được nhưng Sheets chưa có tasks', 'error', 4000);
-    }
-  } catch(err) {
-    showToast('❌ Không kết nối được Sheets: ' + err.message, 'error', 4000);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Kiểm tra Sheets'; }
-  }
-}
-
-// Auto-load tasks + worklogs + interrupts from Sheets on startup
-async function gsAutoLoad() {
-  if (!_gsConfig.scriptUrl) return;
-  try {
-    showToast('⏳ Đang load data từ Sheets…');
-    const merged = await _gsFetchAndMerge();
-    if (merged) {
-      showToast(`✅ Đã load ${merged.length} tasks từ Sheets`, 'success');
-    }
-  } catch(err) {
-    console.warn('gsAutoLoad failed:', err);
-    _gsApplyLocalFallback();
-  }
-}
-
-// Fetch from Sheets and merge — Sheets wins (source of truth).
-// Locally-added tasks not in Sheets are appended.
-// Returns final task array, or null if Sheets had no data.
-async function _gsFetchAndMerge() {
-  const resp = await fetch(_gsConfig.scriptUrl + '?_=' + Date.now());
+async function _gistPullRaw(token, id) {
+  const resp = await fetch(`https://api.github.com/gists/${id}`, {
+    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json', 'Cache-Control': 'no-cache' }
+  });
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const data = await resp.json();
-
-  if (data.worklogs) Object.entries(data.worklogs).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-  if (data.interrupts) Object.entries(data.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-
-  if (!data.tasks?.length) return null;
-
-  // Sheets is source of truth — use its data directly
-  let tasks = data.tasks.map(t => ({ ...t, group: getStatusGroup(t.status) }));
-
-  // Append locally-added tasks that don't exist in Sheets yet
-  try {
-    const lsSaved = JSON.parse(localStorage.getItem('_taskStore') || '[]');
-    if (lsSaved.length) {
-      const sheetsNames = new Set(tasks.map(t => t.task));
-      const localOnly = lsSaved.filter(t => !sheetsNames.has(t.task));
-      if (localOnly.length) tasks = [...tasks, ...localOnly];
-    }
-  } catch {}
-
-  _taskStore = tasks;
-  _currentFileName = 'Google Sheets';
-  localStorage.setItem('_taskStore', JSON.stringify(tasks));
-  localStorage.setItem('_fileName', 'Google Sheets');
-  document.getElementById('dropzone').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'grid';
-  const btn = document.getElementById('import-btn');
-  btn.className = 'btn btn-ghost has-file';
-  btn.innerHTML = `✅ Google Sheets`;
-  const active = tasks.filter(t => t.group !== 'done' && t.hidden !== 'ok');
-  renderMood(active); renderSidebar(active); renderMain(active);
-  return tasks;
+  const content = data.files['tasks.json']?.content;
+  if (!content) return null;
+  const snap = JSON.parse(content);
+  if (snap.tasks?.length) renderDashboard(snap.tasks, 'GitHub Gist', 'GitHub Gist');
+  if (snap.worklogs)   Object.entries(snap.worklogs).forEach(([k,v])   => localStorage.setItem(k, JSON.stringify(v)));
+  if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+  document.getElementById('gs-status-text').textContent = `Pull lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+  return snap.tasks;
 }
 
-// Silent background sync when tab regains focus — no loading toast
-let _lastVisibilitySync = 0;
-async function gsSilentSync() {
-  if (!_gsConfig.scriptUrl || !_taskStore.length) return;
+async function gistPush() {
+  if (!gistConnected()) { showToast('⚠️ Chưa kết nối Gist', 'error'); return; }
   try {
-    const tasks = await _gsFetchAndMerge();
-    if (tasks) showToast('🔄 Đã sync từ Sheets', 'success', 2000);
-  } catch(err) {
-    console.warn('gsSilentSync failed:', err);
-  }
+    await _gistPushRaw(_gistConfig.token, _gistConfig.gistId);
+    showToast(`✅ Đã push ${_taskStore.length} tasks lên Gist`, 'success', 2500);
+  } catch(err) { showToast('❌ Push thất bại: ' + err.message, 'error', 4000); }
 }
 
-function _gsApplyLocalFallback() {
-  const saved = localStorage.getItem('_taskStore');
-  if (!saved) return;
+async function gistPull() {
+  if (!gistConnected()) { showToast('⚠️ Chưa kết nối Gist', 'error'); return; }
+  showToast('⏳ Đang pull từ Gist…');
   try {
-    const t = JSON.parse(saved);
-    if (!t?.length) return;
-    _taskStore = t;
-    document.getElementById('dropzone').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'grid';
-    const active = t.filter(x => x.group !== 'done' && x.hidden !== 'ok');
-    renderMood(active); renderSidebar(active); renderMain(active);
-  } catch {}
+    const tasks = await _gistPullRaw(_gistConfig.token, _gistConfig.gistId);
+    if (tasks?.length) showToast(`✅ Đã pull ${tasks.length} tasks từ Gist`, 'success', 2500);
+    else showToast('⚠️ Gist chưa có data', 'error', 3000);
+  } catch(err) { showToast('❌ Pull thất bại: ' + err.message, 'error', 4000); }
 }
 
-// Load stored worklogs + interrupts from Sheets via Apps Script doGet
-async function gsLoadStoredData() {
-  if (!_gsConfig.scriptUrl) return;
-  try {
-    const resp = await fetch(_gsConfig.scriptUrl);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    if (data.worklogs) Object.entries(data.worklogs).forEach(([k,v]) => {
-      if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(v));
-    });
-    if (data.interrupts) Object.entries(data.interrupts).forEach(([k,v]) => {
-      if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(v));
-    });
-    const wCount = Object.keys(data.worklogs||{}).length;
-    const iCount = Object.keys(data.interrupts||{}).length;
-    if (wCount + iCount > 0) showToast(`☁️ Đã khôi phục ${wCount} worklogs, ${iCount} interrupts từ Sheets`, 'success', 4000);
-  } catch(err) {
-    console.warn('gsLoadStoredData failed:', err);
-  }
+async function gistSilentPull() {
+  if (!gistConnected()) return;
+  try { await _gistPullRaw(_gistConfig.token, _gistConfig.gistId); }
+  catch(err) { console.warn('gistSilentPull failed:', err); }
 }
 
-// Write-back via GET params — avoids POST redirect body loss issue
-// Apps Script handles: updateStatus, addWorkLog, saveInterrupt via doGet params
-async function gsWriteBack(payload) {
-  if (!_gsConfig.scriptUrl) return;
-  try {
-    const params = new URLSearchParams();
-    Object.entries(payload).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && k !== 'tasks') {
-        params.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
-      }
-    });
-    params.set('_', Date.now());
-    fetch(_gsConfig.scriptUrl + '?' + params.toString());
-  } catch(err) {
-    console.warn('GSheets write-back failed:', err);
-  }
+let _gistSaveTimer = null;
+function gistAutoSave() {
+  if (!gistConnected()) return;
+  clearTimeout(_gistSaveTimer);
+  _gistSaveTimer = setTimeout(async () => {
+    try { await _gistPushRaw(_gistConfig.token, _gistConfig.gistId); }
+    catch(err) { console.warn('gistAutoSave failed:', err); }
+  }, 2000);
 }
 
-function showAppsScriptHelp() {
-  const code = `/* ── Apps Script — paste vào project đang deploy ──
+function _showAppsScriptHelp_removed() {
+  const code = `/* removed
    Extensions → Apps Script → xóa code cũ → paste
    Deploy → New deployment → Web App
    Execute as: Me  |  Who has access: Anyone  */
@@ -2457,52 +2248,11 @@ dz.addEventListener('click', e => {
   document.getElementById('file-input').click();
 });
 
-// ── GOOGLE DRIVE (MCP via Claude) ──────────────────────────────────────────
-
-function toggleDrivePanel() {
-  const panel = document.getElementById('drive-panel');
-  const overlay = document.getElementById('drive-overlay');
-  const isOpen = panel.classList.contains('open');
-  closeGsPanel();
-  if (!isOpen) { panel.classList.add('open'); overlay.classList.add('open'); }
-}
-function closeDrivePanel() {
-  document.getElementById('drive-panel').classList.remove('open');
-  document.getElementById('drive-overlay').classList.remove('open');
-}
-
-function mcpCopyBackup() {
-  const data = JSON.stringify(driveCollectAll(), null, 2);
-  navigator.clipboard.writeText(data).then(() => {
-    showToast('✅ Đã copy! Paste vào chat Claude và nói "lưu lên Drive"', 'success', 5000);
-    closeDrivePanel();
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = data;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
-    showToast('✅ Đã copy! Paste vào chat Claude và nói "lưu lên Drive"', 'success', 5000);
-    closeDrivePanel();
-  });
-}
-
-function mcpDoRestore() {
-  const raw = document.getElementById('mcp-restore-input').value.trim();
-  if (!raw) { showToast('⚠️ Chưa có data để restore', 'error'); return; }
-  try {
-    const snap = JSON.parse(raw);
-    if (snap.tasks?.length) renderDashboard(snap.tasks, 'Backup', 'Drive');
-    if (snap.worklogs) Object.entries(snap.worklogs).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-    if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-    showToast(`✅ Đã restore ${snap.tasks?.length||0} tasks, ${Object.keys(snap.worklogs||{}).length} worklogs`, 'success', 4000);
-    document.getElementById('mcp-restore-input').value = '';
-    closeDrivePanel();
-  } catch(e) {
-    showToast('❌ JSON không hợp lệ — paste lại data từ Claude', 'error', 4000);
-  }
-}
+// stubs for removed Drive panel
+function toggleDrivePanel() {}
+function closeDrivePanel() {}
+function mcpCopyBackup() {}
+function mcpDoRestore() {}
 
 function driveCollectAll() {
   // Collect all worklog_* and intr_* keys from localStorage
