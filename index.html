@@ -1978,7 +1978,7 @@ async function connectGist() {
     if (!id) {
       const resp = await fetch('https://api.github.com/gists', {
         method: 'POST',
-        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
         body: JSON.stringify({ description: 'PM/PO Daily Insight — task data', public: false, files: { 'tasks.json': { content: JSON.stringify(_taskStore.length ? _taskStore : []) } } })
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} — kiểm tra token có quyền gist không`);
@@ -1987,7 +1987,7 @@ async function connectGist() {
       document.getElementById('gist-id').value = id;
     } else {
       const resp = await fetch(`https://api.github.com/gists/${id}`, {
-        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json' }
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} — Gist ID không hợp lệ hoặc không có quyền`);
     }
@@ -2033,7 +2033,7 @@ async function _gistPushRaw(token, id) {
   const snap = driveCollectAll();
   const resp = await fetch(`https://api.github.com/gists/${id}`, {
     method: 'PATCH',
-    headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
     body: JSON.stringify({ files: { 'tasks.json': { content: JSON.stringify(snap) } } })
   });
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -2042,7 +2042,7 @@ async function _gistPushRaw(token, id) {
 
 async function _gistPullRaw(token, id) {
   const resp = await fetch(`https://api.github.com/gists/${id}`, {
-    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json', 'Cache-Control': 'no-cache' }
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json', 'Cache-Control': 'no-cache' }
   });
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const data = await resp.json();
