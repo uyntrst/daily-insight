@@ -1976,10 +1976,15 @@ async function connectGist() {
   try {
     let id = gistId;
     if (!id) {
+      // Tạo Gist mới chỉ khi đã có data để push
+      if (!_taskStore.length) {
+        showToast('⚠️ Nhập Gist ID để pull data về, hoặc import file trước rồi mới tạo Gist mới', 'error', 5000);
+        return;
+      }
       const resp = await fetch('https://api.github.com/gists', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
-        body: JSON.stringify({ description: 'PM/PO Daily Insight — task data', public: false, files: { 'tasks.json': { content: JSON.stringify(_taskStore.length ? _taskStore : []) } } })
+        body: JSON.stringify({ description: 'PM/PO Daily Insight — task data', public: false, files: { 'tasks.json': { content: JSON.stringify({ tasks: _taskStore, worklogs: {}, interrupts: {} }, null, 2) } } })
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} — kiểm tra token có quyền gist không`);
       const data = await resp.json();
@@ -2049,11 +2054,15 @@ async function _gistPullRaw(token, id) {
   const content = data.files['tasks.json']?.content;
   if (!content) return null;
   const snap = JSON.parse(content);
-  if (snap.tasks?.length) renderDashboard(snap.tasks, 'GitHub Gist', 'GitHub Gist');
-  if (snap.worklogs)   Object.entries(snap.worklogs).forEach(([k,v])   => localStorage.setItem(k, JSON.stringify(v)));
-  if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+  // Handle cả 2 format: { tasks: [...] } hoặc array thẳng [...]
+  const tasks = Array.isArray(snap) ? snap : snap.tasks;
+  if (tasks?.length) renderDashboard(tasks, 'GitHub Gist', 'GitHub Gist');
+  if (!Array.isArray(snap)) {
+    if (snap.worklogs)   Object.entries(snap.worklogs).forEach(([k,v])   => localStorage.setItem(k, JSON.stringify(v)));
+    if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+  }
   document.getElementById('gs-status-text').textContent = `Pull lúc ${new Date().toLocaleTimeString('vi-VN')}`;
-  return snap.tasks;
+  return tasks;
 }
 
 async function gistPush() {
