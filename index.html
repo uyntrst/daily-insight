@@ -2042,7 +2042,7 @@ async function _gistPushRaw(token, id) {
 
 async function _gistPullRaw(token, id) {
   const resp = await fetch(`https://api.github.com/gists/${id}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json', 'Cache-Control': 'no-cache' }
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json' }
   });
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const data = await resp.json();
