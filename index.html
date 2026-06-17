@@ -505,6 +505,30 @@
   }
   .status-select:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
 
+  /* ── NOTE TAB ── */
+  .note-tab-bar { display:flex; gap:8px; align-items:center; border-top:1px solid var(--border); padding-top:12px; margin-bottom:4px; }
+  .note-tab-btn {
+    display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600;
+    color:var(--blue); background:var(--blue-bg); border:1px solid var(--blue-border);
+    border-radius:20px; padding:5px 12px; cursor:pointer; font-family:var(--font);
+    transition:background .15s;
+  }
+  .note-tab-btn:hover { background:rgba(37,99,235,.15); }
+  .note-add-btn {
+    display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600;
+    color:var(--text3); background:none; border:1px dashed var(--border);
+    border-radius:20px; padding:5px 12px; cursor:pointer; font-family:var(--font);
+    transition:border-color .15s, color .15s;
+  }
+  .note-add-btn:hover { border-color:var(--blue); color:var(--blue); }
+  .note-panel {
+    background:var(--bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px; margin-bottom:6px; display:none;
+  }
+  .note-panel.open { display:block; }
+  .note-panel-content { font-size:13px; color:var(--text); line-height:1.7; white-space:pre-wrap; }
+  .note-panel-actions { display:flex; gap:8px; margin-top:10px; }
+
   /* ── WORK LOG ── */
   .worklog-section { border-top:1px solid var(--border); padding-top:14px; display:flex; flex-direction:column; gap:10px; }
   .worklog-header { display:flex; align-items:center; justify-content:space-between; }
@@ -2519,7 +2543,19 @@ function openDrawer(idx) {
   // Description & note — only show when has content; images only when exist
   const hasImages = (t.images||[]).length > 0;
   const descHtml = `<div class="drawer-row"><div class="dr-label">Mô tả ${editBtn('description')}</div>${t.description ? `<div class="dr-value" id="field-description">${esc(t.description)}</div>` : `<div id="field-description"></div>`}<div class="img-gallery" id="img-gallery-${idx}"></div></div>`;
-  const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn ${editBtn('note')}</div><div class="dr-value" id="field-note">${esc(t.note)}</div></div>` : `<div id="field-note" style="display:none"></div>`;
+  const noteHtml = `
+    <div class="note-tab-bar">
+      ${t.note
+        ? `<button class="note-tab-btn" onclick="toggleNotePanel(${idx})">📝 Ghi chú</button>`
+        : (!isDone ? `<button class="note-add-btn" onclick="drawerEditField(${idx},'note')">+ Ghi chú</button>` : '')
+      }
+    </div>
+    ${t.note ? `
+    <div class="note-panel" id="note-panel-${idx}">
+      <div class="note-panel-content" id="field-note">${esc(t.note)}</div>
+      ${!isDone ? `<div class="note-panel-actions"><button class="btn btn-ghost" onclick="drawerEditField(${idx},'note')">✏️ Chỉnh sửa</button></div>` : ''}
+    </div>` : `<div id="field-note" style="display:none"></div>`}
+  `;
 
   // Write-back row — hidden for done tasks
   const updateHtml = isDone ? '' : `
@@ -2573,6 +2609,11 @@ function openDrawer(idx) {
   document.getElementById('drawer-backdrop').classList.add('open');
   renderWorkLogHistory(t);
   renderImgGallery(idx, false);
+}
+
+function toggleNotePanel(idx) {
+  const panel = document.getElementById(`note-panel-${idx}`);
+  if (panel) panel.classList.toggle('open');
 }
 
 function drawerUpdateStatus(idx, newStatus) {
