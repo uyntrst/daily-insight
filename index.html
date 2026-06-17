@@ -941,7 +941,8 @@
     </div>
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Mô tả</div>
-      <textarea id="nt-desc" placeholder="Mô tả thêm..." rows="2" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box;resize:vertical" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <textarea id="nt-desc" placeholder="Mô tả thêm... (Ctrl+V để paste ảnh)" rows="2" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box;resize:vertical" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <div class="img-gallery" id="nt-img-gallery" style="margin-top:8px"></div>
     </div>
   </div>
   <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
@@ -1382,20 +1383,67 @@ function undoneTask(idx) {
 }
 
 // ── ADD TASK ─────────────────────────────────────────────────────────────────
+let _ntImages = [];
+
+function renderNtImgGallery() {
+  const gallery = document.getElementById('nt-img-gallery');
+  if (!gallery) return;
+  gallery.innerHTML = '';
+  _ntImages.forEach((src, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'img-thumb-wrap';
+    const img = document.createElement('img');
+    img.className = 'img-thumb'; img.src = src; img.title = 'Click để xem lớn';
+    img.onclick = () => imgView(src);
+    const del = document.createElement('button');
+    del.className = 'img-del-btn'; del.textContent = '×'; del.title = 'Xóa';
+    del.onclick = e => { e.stopPropagation(); _ntImages.splice(i, 1); renderNtImgGallery(); };
+    wrap.appendChild(img); wrap.appendChild(del);
+    gallery.appendChild(wrap);
+  });
+  const label = document.createElement('label');
+  label.className = 'img-add-btn'; label.title = 'Thêm ảnh';
+  label.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" y1="5" x2="22" y2="5"/><line x1="19" y1="2" x2="19" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span style="font-size:10px">+ Ảnh</span>';
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.style.display = 'none';
+  input.onchange = e => Array.from(e.target.files).forEach(f => {
+    const r = new FileReader(); r.onload = ev => { _ntImages.push(ev.target.result); renderNtImgGallery(); }; r.readAsDataURL(f);
+  });
+  label.appendChild(input);
+  gallery.appendChild(label);
+}
+
 function openAddTaskModal() {
+  _ntImages = [];
   document.getElementById('add-task-overlay').style.display = 'block';
   document.getElementById('add-task-modal').style.display = 'block';
-  // Reset fields
   ['nt-task','nt-project','nt-deadline','nt-next','nt-desc'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('nt-status').value = '01.In progress';
-  setTimeout(() => document.getElementById('nt-task').focus(), 50);
+  renderNtImgGallery();
+  setTimeout(() => {
+    document.getElementById('nt-task').focus();
+    const ta = document.getElementById('nt-desc');
+    ta.onpaste = e => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const r = new FileReader();
+          r.onload = ev => { _ntImages.push(ev.target.result); renderNtImgGallery(); };
+          r.readAsDataURL(item.getAsFile());
+        }
+      }
+    };
+  }, 50);
 }
 
 function closeAddTaskModal() {
   document.getElementById('add-task-overlay').style.display = 'none';
   document.getElementById('add-task-modal').style.display = 'none';
+  _ntImages = [];
 }
 
 function submitAddTask() {
@@ -1408,6 +1456,7 @@ function submitAddTask() {
     deadline:   document.getElementById('nt-deadline').value || null,
     nextAction: document.getElementById('nt-next').value.trim(),
     description:document.getElementById('nt-desc').value.trim(),
+    images:     _ntImages.length ? [..._ntImages] : undefined,
     status,
     group:      getStatusGroup(status),
     hidden:     '',
