@@ -1718,6 +1718,15 @@ function spUpdateSprintDate(sprintId, field, value) {
 }
 
 
+function spHasNote(sprint) {
+  if (!sprint || !sprint.noteHtml) return false;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = sprint.noteHtml;
+  if (tmp.querySelector('[data-placeholder]')) return false;
+  if (tmp.querySelector('img')) return true;
+  return tmp.textContent.trim().length > 0;
+}
+
 function spToggleNote(sprintId) {
   const col = document.getElementById('sp-note-col');
   const grid = document.getElementById('sp-main-grid');
@@ -1725,9 +1734,17 @@ function spToggleNote(sprintId) {
   if (!col) return;
   const visible = col.style.display !== 'none';
   if (visible) {
+    // Flush any pending debounced save so the note state is current
+    const ed = document.getElementById('sp-note-editor');
+    if (ed) {
+      clearTimeout(_spNoteSaveTimer);
+      const s = _sprintList.find(sp => sp.id === ed.dataset.sprint);
+      if (s) { s.noteHtml = ed.innerHTML; spSave(); }
+    }
     col.style.display = 'none';
     grid.style.gridTemplateColumns = '1fr';
-    if (btn) { btn.style.background = 'none'; btn.style.color = 'var(--text2)'; btn.style.borderColor = 'var(--border)'; }
+    // Re-render so the toggle button reflects whether a note now exists
+    renderSprintDetailView(sprintId);
   } else {
     col.style.display = 'block';
     grid.style.gridTemplateColumns = 'repeat(12,1fr)';
@@ -1827,7 +1844,10 @@ function renderSprintDetailView(sprintId) {
         </div>` : ''}
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        <button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text2)">📝 Ghi chú</button>
+        ${spHasNote(sprint)
+          ? `<button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--blue-text)">📝 Ghi chú</button>`
+          : `<button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text3)">＋ Ghi chú</button>`
+        }
         <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
       </div>
     </div>
