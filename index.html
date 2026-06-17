@@ -952,7 +952,7 @@
   </div>
 
   <!-- ── SPRINT PAGE (content rendered by JS) ── -->
-  <div id="sprint-page" style="display:none;padding:28px 32px;max-width:900px;margin:0 auto"></div>
+  <div id="sprint-page" style="display:none;padding:28px 40px"></div>
 
   <!-- Sprint meta modal (create/edit sprint) -->
   <div class="sp-modal-overlay" id="sp-sprint-modal-overlay" onclick="closeSprintModal()"></div>
@@ -984,17 +984,17 @@
     </div>
   </div>
 
-  <!-- Sprint card drawer -->
-  <div id="sp-drawer-backdrop" onclick="spCloseDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:700"></div>
-  <div id="sp-drawer" style="display:none;position:fixed;top:0;right:0;width:min(480px,100vw);height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:701;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.12);padding:0">
-    <div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:10px;z-index:1">
-      <button onclick="spCloseDrawer()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;font-family:var(--font);color:var(--text2)">✕</button>
+  <!-- Sprint card detail modal -->
+  <div id="sp-drawer-backdrop" onclick="spCloseDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:700"></div>
+  <div id="sp-drawer" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(640px,96vw);max-height:90vh;background:var(--surface);border:1px solid var(--border);border-radius:16px;z-index:701;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2);flex-direction:column">
+    <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0">
       <div style="flex:1;min-width:0">
         <div id="spd-card-id" style="font-size:11px;font-weight:700;color:var(--blue-text)"></div>
-        <div id="spd-title-view" onclick="spdEditField('title')" style="font-size:15px;font-weight:700;color:var(--text);cursor:pointer;margin-top:1px;border-radius:6px;padding:2px 4px;border:1px dashed transparent" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'"></div>
+        <div id="spd-title-view" onclick="spdEditField('title')" style="font-size:15px;font-weight:700;color:var(--text);cursor:pointer;margin-top:2px;border-radius:6px;padding:2px 4px;border:1px dashed transparent" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'"></div>
       </div>
+      <button onclick="spCloseDrawer()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:14px;cursor:pointer;font-family:var(--font);color:var(--text2);flex-shrink:0">✕</button>
     </div>
-    <div style="padding:20px" id="spd-body"></div>
+    <div style="padding:20px;overflow-y:auto;flex:1" id="spd-body"></div>
   </div>
 
   <!-- Sprint card modal -->
@@ -1660,7 +1660,7 @@ function renderSprintCards() {
     const cards = _sprintCards.filter(c => c.sprintId === s.id);
     const done  = cards.filter(c => c.devStatus === 'done').length;
     const ret   = cards.filter(c => c.devStatus === 'returned').length;
-    const prepIncomplete = cards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs).length;
+    const prepIncomplete = cards.filter(c => c.devStatus !== 'done' && (!c.prepChecked || !c.prepSupplemented || !c.prepDocs)).length;
     const dateRange = (s.startDate || s.endDate) ? `<span style="font-size:11px;color:var(--text3)">${s.startDate ? fmtDate(s.startDate) : ''}${s.startDate && s.endDate ? ' → ' : ''}${s.endDate ? fmtDate(s.endDate) : ''}</span>` : '';
     const retBadge  = ret ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">⚠️ ${ret} returned</span>` : '';
     const prepBadge = prepIncomplete ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)">📋 ${prepIncomplete} chưa chuẩn bị</span>` : '';
@@ -1690,13 +1690,55 @@ function spUpdateSprintDate(sprintId, field, value) {
   if (!s) return;
   s[field] = value;
   spSave();
-  // Re-render just the deadline badges on visible cards without full re-render
   renderSprintDetailView(sprintId);
+}
+
+
+function spNoteExec(cmd) {
+  const ed = document.getElementById('sp-note-editor');
+  if (!ed) return;
+  const ph = ed.querySelector('[data-placeholder]');
+  if (ph) ph.remove();
+  ed.focus();
+  document.execCommand(cmd, false, null);
+  spNoteSave(ed);
+}
+
+function spNoteInit() {
+  const ed = document.getElementById('sp-note-editor');
+  if (!ed || ed._spNoteInited) return;
+  ed._spNoteInited = true;
+  ed.addEventListener('focus', () => { const ph = ed.querySelector('[data-placeholder]'); if (ph) ph.remove(); });
+  ed.addEventListener('input', () => spNoteSave(ed));
+  ed.addEventListener('paste', e => {
+    const items = e.clipboardData?.items || [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const ph = ed.querySelector('[data-placeholder]'); if (ph) ph.remove();
+        const reader = new FileReader();
+        reader.onload = ev => { document.execCommand('insertHTML', false, `<img src="${ev.target.result}" style="max-width:100%;border-radius:6px;margin:4px 0">`); spNoteSave(ed); };
+        reader.readAsDataURL(item.getAsFile());
+        return;
+      }
+    }
+  });
+}
+
+let _spNoteSaveTimer = null;
+function spNoteSave(ed) {
+  clearTimeout(_spNoteSaveTimer);
+  _spNoteSaveTimer = setTimeout(() => {
+    const s = _sprintList.find(sp => sp.id === ed.dataset.sprint);
+    if (!s) return;
+    s.noteHtml = ed.innerHTML;
+    spSave();
+  }, 400);
 }
 
 function spFilterCards(cards, f) {
   if (f === 'all') return cards;
-  if (f === 'prep')      return cards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs);
+  if (f === 'prep')      return cards.filter(c => c.devStatus !== 'done' && (!c.prepChecked || !c.prepSupplemented || !c.prepDocs));
   if (f === 'inprogress') return cards.filter(c => c.devStatus === 'inprogress');
   if (f === 'returned')   return cards.filter(c => c.devStatus === 'returned');
   if (f === 'prodcheck')  return cards.filter(c => !!c.prodCheck);
@@ -1714,7 +1756,7 @@ function renderSprintDetailView(sprintId) {
 
   const devStatusCounts = {};
   allCards.forEach(c => devStatusCounts[c.devStatus] = (devStatusCounts[c.devStatus]||0)+1);
-  const prepIncompleteCount = allCards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs).length;
+  const prepIncompleteCount = allCards.filter(c => c.devStatus !== 'done' && (!c.prepChecked || !c.prepSupplemented || !c.prepDocs)).length;
   const prodCheckCount = allCards.filter(c => c.prodCheck).length;
 
   const filters = [
@@ -1735,25 +1777,41 @@ function renderSprintDetailView(sprintId) {
           <button onclick="openSprintModal(_sprintList.findIndex(s=>s.id==='${sprintId}'))" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:var(--font);color:var(--text2)">✏️ Sửa</button>
         </div>
         ${sprint.goal ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${esc(sprint.goal)}</div>` : ''}
-        <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:5px">
-            <span style="font-size:11px;color:var(--text3);font-weight:600">Start:</span>
-            <input type="date" value="${sprint.startDate||''}" onchange="spUpdateSprintDate('${sprintId}','startDate',this.value)" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
-          </div>
-          <div style="display:flex;align-items:center;gap:5px">
-            <span style="font-size:11px;color:var(--text3);font-weight:600">End:</span>
-            <input type="date" value="${sprint.endDate||''}" onchange="spUpdateSprintDate('${sprintId}','endDate',this.value)" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
-          </div>
-        </div>
+        ${(sprint.startDate || sprint.endDate) ? `<div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
+          ${sprint.startDate ? `<span style="font-size:11px;color:var(--text3)"><b>Start:</b> ${sprint.startDate}</span>` : ''}
+          ${sprint.endDate   ? `<span style="font-size:11px;color:var(--text3)"><b>End:</b> ${sprint.endDate}</span>`   : ''}
+        </div>` : ''}
       </div>
       <div style="margin-left:auto">
         <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
       </div>
     </div>
-    <div class="sp-filter-bar" style="margin-bottom:16px;margin-top:12px">
-      ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:16px;align-items:start;margin-top:12px">
+      <div style="grid-column:span 9;min-width:0">
+        <div class="sp-filter-bar" style="margin-bottom:16px">
+          ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
+        </div>
+        <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>
+      </div>
+      <div style="grid-column:span 3;position:sticky;top:16px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
+            <div style="display:flex;gap:4px">
+              <button onclick="spNoteExec('insertUnorderedList')" title="Bullet list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">•≡</button>
+              <button onclick="spNoteExec('insertOrderedList')" title="Numbered list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">1≡</button>
+              <button onclick="spNoteExec('bold')" title="Bold" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2);font-weight:700">B</button>
+            </div>
+          </div>
+          <div id="sp-note-editor" contenteditable="true" spellcheck="false"
+            style="min-height:200px;max-height:70vh;overflow-y:auto;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.6;outline:none;font-family:var(--font)"
+            data-sprint="${sprintId}"
+          >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Dùng cho meeting, ghi chú sprint...</p>'}</div>
+        </div>
+      </div>
     </div>
-    <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>`;
+    `;
+  spNoteInit();
 }
 
 const _spExpandedAC = new Set();
@@ -1765,6 +1823,7 @@ function spPrepStyle(active) {
 }
 
 function spPrepDeadlineBadge(c, sprint) {
+  if (c.devStatus === 'done') return '';
   const prepDone = c.prepChecked && c.prepSupplemented && c.prepDocs;
   if (prepDone || !sprint?.startDate) return '';
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1861,7 +1920,7 @@ function spOpenDrawer(globalIdx) {
   document.getElementById('spd-title-view').textContent = c.title || '(chưa có tiêu đề)';
   spdRenderBody();
   document.getElementById('sp-drawer-backdrop').style.display = 'block';
-  document.getElementById('sp-drawer').style.display = 'block';
+  document.getElementById('sp-drawer').style.display = 'flex';
 }
 
 function spCloseDrawer() {
