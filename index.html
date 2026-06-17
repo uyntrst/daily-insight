@@ -768,6 +768,11 @@
   .sp-input:focus, .sp-select:focus, .sp-ta:focus { border-color:var(--blue); background:var(--surface); }
   .sp-ta { resize:vertical; min-height:80px; line-height:1.6; }
   .sp-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .sp-prep-check { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:2px solid var(--border); border-radius:4px; font-size:11px; font-weight:800; color:var(--green-text); cursor:pointer; transition:all .15s; flex-shrink:0; }
+  .sp-prep-check.checked { background:var(--green-bg); border-color:var(--green-border); }
+  .sp-prep-row { display:flex; align-items:center; gap:8px; padding:6px 0; }
+  .sp-prep-label { font-size:13px; color:var(--text2); }
+  .sp-section-title { font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; margin:16px 0 10px; }
 </style>
 </head>
 <body>
@@ -985,20 +990,12 @@
     <h3 id="sp-modal-title">＋ Thêm card</h3>
     <input type="hidden" id="sp-edit-idx" value="">
     <input type="hidden" id="sp-edit-sprint" value="">
+
+    <div class="sp-section-title">📋 Thông tin card</div>
     <div class="sp-row2">
       <div class="sp-field">
         <label class="sp-label">Card ID <span style="color:var(--text3);font-weight:400">(VD: CSP-6204)</span></label>
         <input class="sp-input" id="sp-id" placeholder="CSP-XXXX">
-      </div>
-      <div class="sp-field">
-        <label class="sp-label">Trạng thái</label>
-        <select class="sp-select" id="sp-status">
-          <option value="todo">To Do</option>
-          <option value="inprogress">In Progress</option>
-          <option value="review">In Review / QA</option>
-          <option value="returned">Returned</option>
-          <option value="done">Done</option>
-        </select>
       </div>
     </div>
     <div class="sp-field">
@@ -1009,14 +1006,45 @@
       <label class="sp-label">Ghi chú nhanh</label>
       <textarea class="sp-ta" id="sp-note" rows="2" placeholder="Vấn đề, context nhanh..."></textarea>
     </div>
-    <div class="sp-field">
+
+    <div class="sp-section-title">🎯 Chuẩn bị trước sprint <span style="font-size:10px;font-weight:400;text-transform:none;color:var(--text3)">Hoàn thành trước ngày bắt đầu sprint</span></div>
+    <div class="sp-prep-row">
+      <button class="sp-prep-check" id="sp-prep-checked" type="button" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':''"></button>
+      <span class="sp-prep-label">Đã check &amp; confirm yêu cầu</span>
+    </div>
+    <div class="sp-prep-row">
+      <button class="sp-prep-check" id="sp-prep-supplemented" type="button" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':''"></button>
+      <span class="sp-prep-label">Đã bổ sung thiếu sót</span>
+    </div>
+    <div class="sp-prep-row">
+      <button class="sp-prep-check" id="sp-prep-docs" type="button" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':''"></button>
+      <span class="sp-prep-label">Đã viết Docs / AC</span>
+    </div>
+    <div class="sp-field" style="margin-top:10px">
       <label class="sp-label">Acceptance Criteria</label>
-      <textarea class="sp-ta" id="sp-ac" rows="4" placeholder="AC 1: ...&#10;AC 2: ...&#10;AC 3: ..."></textarea>
+      <textarea class="sp-ta" id="sp-ac" rows="4" placeholder="AC 1:&#10;AC 2:&#10;AC 3:..."></textarea>
     </div>
     <div class="sp-field">
       <label class="sp-label">Ghi chú yêu cầu bổ sung</label>
       <textarea class="sp-ta" id="sp-extra" rows="3" placeholder="Yêu cầu còn thiếu, edge case cần bổ sung..."></textarea>
     </div>
+
+    <div class="sp-section-title">🔄 Theo dõi tiến độ</div>
+    <div class="sp-field">
+      <label class="sp-label">Dev status</label>
+      <select class="sp-select" id="sp-status">
+        <option value="todo">To Do</option>
+        <option value="inprogress">In Progress</option>
+        <option value="review">In Review / QA</option>
+        <option value="returned">Returned</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="sp-prep-row">
+      <button class="sp-prep-check" id="sp-prod-check" type="button" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':''"></button>
+      <span class="sp-prep-label">📦 Cần PO check trên Prod</span>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeSprintCardModal()">Huỷ</button>
       <button class="btn btn-primary" onclick="saveSprintCard()">💾 Lưu</button>
@@ -1560,7 +1588,8 @@ function undoneTask(idx) {
 const JIRA_BASE = 'https://atlassiansuite.mservice.com.vn:8443/browse/';
 const SP_STATUS_LABEL = { todo:'To Do', inprogress:'In Progress', review:'In Review / QA', returned:'Returned', done:'Done' };
 
-// Data: _sprintList = [{id,name,goal,startDate,endDate}], _sprintCards = [{sprintId,cardId,title,status,note,ac,extra}]
+// Data: _sprintList = [{id,name,goal,startDate,endDate}]
+// _sprintCards = [{sprintId,cardId,title,devStatus,note,ac,extra,prepChecked,prepSupplemented,prepDocs,prodCheck}]
 let _sprintList  = [];
 let _sprintCards = [];
 let _spActiveSprintId = null;  // null = list view, string = detail view
@@ -1616,15 +1645,17 @@ function renderSprintCards() {
   if (!_sprintList.length) return `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">Chưa có sprint nào — nhấn ＋ Thêm sprint</div>`;
   return _sprintList.map((s, i) => {
     const cards = _sprintCards.filter(c => c.sprintId === s.id);
-    const done  = cards.filter(c => c.status === 'done').length;
-    const ret   = cards.filter(c => c.status === 'returned').length;
+    const done  = cards.filter(c => c.devStatus === 'done').length;
+    const ret   = cards.filter(c => c.devStatus === 'returned').length;
+    const prepIncomplete = cards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs).length;
     const dateRange = (s.startDate || s.endDate) ? `<span style="font-size:11px;color:var(--text3)">${s.startDate ? fmtDate(s.startDate) : ''}${s.startDate && s.endDate ? ' → ' : ''}${s.endDate ? fmtDate(s.endDate) : ''}</span>` : '';
     const retBadge  = ret ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">⚠️ ${ret} returned</span>` : '';
+    const prepBadge = prepIncomplete ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)">📋 ${prepIncomplete} chưa chuẩn bị</span>` : '';
     return `<div class="sp-sprint-row" onclick="spOpenDetail('${s.id}')">
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${esc(s.name)}</div>
         ${s.goal ? `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">${esc(s.goal)}</div>` : ''}
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${dateRange}${retBadge}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${dateRange}${retBadge}${prepBadge}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
         <span style="font-size:12px;color:var(--text3)">${cards.length} cards · ${done} done</span>
@@ -1646,9 +1677,31 @@ function renderSprintDetailView(sprintId) {
   const sprint = _sprintList.find(s => s.id === sprintId);
   if (!sprint) { _spActiveSprintId = null; renderSprintListView(); return; }
   const allCards = _sprintCards.filter(c => c.sprintId === sprintId);
-  const cards = _spCardFilter === 'all' ? allCards : allCards.filter(c => c.status === _spCardFilter);
-  const statusCounts = {};
-  allCards.forEach(c => statusCounts[c.status] = (statusCounts[c.status]||0)+1);
+
+  function spCardFilterFn(c) {
+    if (_spCardFilter === 'all') return true;
+    if (_spCardFilter === 'prep') return !c.prepChecked || !c.prepSupplemented || !c.prepDocs;
+    if (_spCardFilter === 'inprogress') return c.devStatus === 'inprogress';
+    if (_spCardFilter === 'returned') return c.devStatus === 'returned';
+    if (_spCardFilter === 'prodcheck') return !!c.prodCheck;
+    if (_spCardFilter === 'done') return c.devStatus === 'done';
+    return true;
+  }
+  const cards = allCards.filter(spCardFilterFn);
+
+  const devStatusCounts = {};
+  allCards.forEach(c => devStatusCounts[c.devStatus] = (devStatusCounts[c.devStatus]||0)+1);
+  const prepIncompleteCount = allCards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs).length;
+  const prodCheckCount = allCards.filter(c => c.prodCheck).length;
+
+  const filters = [
+    { key:'all',        label:`Tất cả (${allCards.length})` },
+    { key:'prep',       label:`Chưa chuẩn bị${prepIncompleteCount?' ('+prepIncompleteCount+')':''}` },
+    { key:'inprogress', label:`In Progress${devStatusCounts['inprogress']?' ('+devStatusCounts['inprogress']+')':''}` },
+    { key:'returned',   label:`Returned${devStatusCounts['returned']?' ('+devStatusCounts['returned']+')':''}` },
+    { key:'prodcheck',  label:`Cần check Prod${prodCheckCount?' ('+prodCheckCount+')':''}` },
+    { key:'done',       label:`Done${devStatusCounts['done']?' ('+devStatusCounts['done']+')':''}` },
+  ];
 
   document.getElementById('sprint-page').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
@@ -1662,10 +1715,7 @@ function renderSprintDetailView(sprintId) {
       </div>
     </div>
     <div class="sp-filter-bar" style="margin-bottom:16px;margin-top:12px">
-      ${['all','todo','inprogress','review','returned','done'].map(f => {
-        const label = f === 'all' ? `Tất cả (${allCards.length})` : `${SP_STATUS_LABEL[f]}${statusCounts[f]?' ('+statusCounts[f]+')':''}`;
-        return `<button class="sp-filter-btn${_spCardFilter===f?' active':''}" onclick="spCardFilter('${f}',this)">${label}</button>`;
-      }).join('')}
+      ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
     </div>
     <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>`;
 }
@@ -1674,22 +1724,44 @@ function renderCardList(cards, sprintId) {
   if (!cards.length) return `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">Không có card nào</div>`;
   return cards.map(c => {
     const globalIdx = _sprintCards.indexOf(c);
-    const badge = `<span class="sp-badge ${c.status}">${SP_STATUS_LABEL[c.status]||c.status}</span>`;
+    const devStatus = c.devStatus || 'todo';
+    const devBadge = `<span class="sp-badge ${devStatus}">${SP_STATUS_LABEL[devStatus]||devStatus}</span>`;
     const notePreview = c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : '';
-    const acBadge    = c.ac    ? `<span style="font-size:10px;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green-border);border-radius:4px;padding:1px 6px">AC</span>` : '';
-    const extraBadge = c.extra ? `<span style="font-size:10px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:4px;padding:1px 6px">Bổ sung</span>` : '';
+
+    function prepBtnStyle(active) {
+      return active
+        ? 'background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)'
+        : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)';
+    }
+
+    const prepCheckBtn    = `<button style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${prepBtnStyle(c.prepChecked)}" onclick="event.stopPropagation();spCardToggle(${globalIdx},'prepChecked')">✓ Check</button>`;
+    const prepSuppBtn     = `<button style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${prepBtnStyle(c.prepSupplemented)}" onclick="event.stopPropagation();spCardToggle(${globalIdx},'prepSupplemented')">✓ Bổ sung</button>`;
+    const prepDocsBtn     = `<button style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${prepBtnStyle(c.prepDocs)}" onclick="event.stopPropagation();spCardToggle(${globalIdx},'prepDocs')">✓ Docs/AC</button>`;
+    const prodCheckBadge  = c.prodCheck ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--orange-bg);color:var(--orange-text);border:1px solid var(--orange-border)">📦 Prod</span>` : '';
+
     return `<div class="sp-card" onclick="openCardModal('${sprintId}',${globalIdx})">
       <div class="sp-card-left">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
           <a class="sp-card-id" href="${JIRA_BASE}${esc(c.cardId)}" target="_blank" onclick="event.stopPropagation()">${esc(c.cardId)}</a>
-          ${acBadge}${extraBadge}
         </div>
         <div class="sp-card-title">${esc(c.title)}</div>
         ${notePreview}
       </div>
-      <div style="flex-shrink:0">${badge}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
+        ${prepCheckBtn}${prepSuppBtn}${prepDocsBtn}
+        ${devBadge}
+        ${prodCheckBadge}
+      </div>
     </div>`;
   }).join('');
+}
+
+function spCardToggle(globalIdx, field) {
+  const c = _sprintCards[globalIdx];
+  if (!c) return;
+  c[field] = !c[field];
+  spSave();
+  renderSprintDetailView(_spActiveSprintId);
 }
 
 function spCardFilter(f, btn) {
@@ -1757,10 +1829,18 @@ function openCardModal(sprintId, globalIdx) {
   document.getElementById('sp-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
   document.getElementById('sp-id').value     = c.cardId || '';
   document.getElementById('sp-title').value  = c.title  || '';
-  document.getElementById('sp-status').value = c.status || 'todo';
+  document.getElementById('sp-status').value = c.devStatus || 'todo';
   document.getElementById('sp-note').value   = c.note   || '';
   document.getElementById('sp-ac').value     = c.ac     || '';
   document.getElementById('sp-extra').value  = c.extra  || '';
+  // prep checkboxes
+  ['sp-prep-checked','sp-prep-supplemented','sp-prep-docs'].forEach((id, i) => {
+    const fields = ['prepChecked','prepSupplemented','prepDocs'];
+    const el = document.getElementById(id);
+    if (el) { el.classList.toggle('checked', !!(c[fields[i]])); el.textContent = c[fields[i]] ? '✓' : ''; }
+  });
+  const prodEl = document.getElementById('sp-prod-check');
+  if (prodEl) { prodEl.classList.toggle('checked', !!c.prodCheck); prodEl.textContent = c.prodCheck ? '✓' : ''; }
   document.getElementById('sp-modal-overlay').style.display = 'block';
   document.getElementById('sp-modal').style.display = 'block';
   setTimeout(() => document.getElementById('sp-id').focus(), 50);
@@ -1773,7 +1853,19 @@ function saveSprintCard() {
   const cardId = document.getElementById('sp-id').value.trim().toUpperCase();
   if (!cardId) { document.getElementById('sp-id').focus(); showToast('⚠️ Nhập Card ID', 'error'); return; }
   const sprintId = document.getElementById('sp-edit-sprint').value;
-  const card = { sprintId, cardId, title: document.getElementById('sp-title').value.trim(), status: document.getElementById('sp-status').value, note: document.getElementById('sp-note').value.trim(), ac: document.getElementById('sp-ac').value.trim(), extra: document.getElementById('sp-extra').value.trim() };
+  const card = {
+    sprintId,
+    cardId,
+    title:            document.getElementById('sp-title').value.trim(),
+    devStatus:        document.getElementById('sp-status').value,
+    note:             document.getElementById('sp-note').value.trim(),
+    ac:               document.getElementById('sp-ac').value.trim(),
+    extra:            document.getElementById('sp-extra').value.trim(),
+    prepChecked:      document.getElementById('sp-prep-checked').classList.contains('checked'),
+    prepSupplemented: document.getElementById('sp-prep-supplemented').classList.contains('checked'),
+    prepDocs:         document.getElementById('sp-prep-docs').classList.contains('checked'),
+    prodCheck:        document.getElementById('sp-prod-check').classList.contains('checked'),
+  };
   const editIdx = document.getElementById('sp-edit-idx').value;
   if (editIdx !== '') _sprintCards[+editIdx] = card;
   else _sprintCards.unshift(card);
