@@ -984,6 +984,19 @@
     </div>
   </div>
 
+  <!-- Sprint card drawer -->
+  <div id="sp-drawer-backdrop" onclick="spCloseDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:700"></div>
+  <div id="sp-drawer" style="display:none;position:fixed;top:0;right:0;width:min(480px,100vw);height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:701;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.12);padding:0">
+    <div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:10px;z-index:1">
+      <button onclick="spCloseDrawer()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;font-family:var(--font);color:var(--text2)">✕</button>
+      <div style="flex:1;min-width:0">
+        <div id="spd-card-id" style="font-size:11px;font-weight:700;color:var(--blue-text)"></div>
+        <div id="spd-title-view" onclick="spdEditField('title')" style="font-size:15px;font-weight:700;color:var(--text);cursor:pointer;margin-top:1px;border-radius:6px;padding:2px 4px;border:1px dashed transparent" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'"></div>
+      </div>
+    </div>
+    <div style="padding:20px" id="spd-body"></div>
+  </div>
+
   <!-- Sprint card modal -->
   <div class="sp-modal-overlay" id="sp-modal-overlay" onclick="closeSprintCardModal()"></div>
   <div class="sp-modal" id="sp-modal">
@@ -1672,22 +1685,23 @@ function spOpenDetail(sprintId) {
   renderSprintDetailView(sprintId);
 }
 
+function spFilterCards(cards, f) {
+  if (f === 'all') return cards;
+  if (f === 'prep')      return cards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs);
+  if (f === 'inprogress') return cards.filter(c => c.devStatus === 'inprogress');
+  if (f === 'returned')   return cards.filter(c => c.devStatus === 'returned');
+  if (f === 'prodcheck')  return cards.filter(c => !!c.prodCheck);
+  if (f === 'done')       return cards.filter(c => c.devStatus === 'done');
+  return cards;
+}
+
 // ── Sprint detail view (cards) ──
 function renderSprintDetailView(sprintId) {
   const sprint = _sprintList.find(s => s.id === sprintId);
   if (!sprint) { _spActiveSprintId = null; renderSprintListView(); return; }
   const allCards = _sprintCards.filter(c => c.sprintId === sprintId);
 
-  function spCardFilterFn(c) {
-    if (_spCardFilter === 'all') return true;
-    if (_spCardFilter === 'prep') return !c.prepChecked || !c.prepSupplemented || !c.prepDocs;
-    if (_spCardFilter === 'inprogress') return c.devStatus === 'inprogress';
-    if (_spCardFilter === 'returned') return c.devStatus === 'returned';
-    if (_spCardFilter === 'prodcheck') return !!c.prodCheck;
-    if (_spCardFilter === 'done') return c.devStatus === 'done';
-    return true;
-  }
-  const cards = allCards.filter(spCardFilterFn);
+  const cards = allCards.filter(c => spFilterCards([c], _spCardFilter).length > 0);
 
   const devStatusCounts = {};
   allCards.forEach(c => devStatusCounts[c.devStatus] = (devStatusCounts[c.devStatus]||0)+1);
@@ -1793,7 +1807,7 @@ function renderCardList(cards, sprintId) {
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
             <a class="sp-card-id" href="${JIRA_BASE}${esc(c.cardId)}" target="_blank">${esc(c.cardId)}</a>
-            <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(c.title)}</span>
+            <span onclick="spOpenDrawer(${globalIdx})" style="font-size:13px;font-weight:600;color:var(--text);cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--border)">${esc(c.title)}</span>
             ${deadlineBadge}
           </div>
           <div id="sp-note-view-${globalIdx}" onclick="spEditNote(${globalIdx})" style="font-size:12px;color:${c.note?'var(--text2)':'var(--text3)'};cursor:text;padding:4px 6px;border-radius:6px;border:1px dashed transparent;min-height:24px;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'">${c.note ? esc(c.note) : '<span style="opacity:.5;font-style:italic">Ghi chú nhanh — click để thêm</span>'}</div>
@@ -1814,6 +1828,144 @@ function renderCardList(cards, sprintId) {
   }).join('');
 }
 
+// ── Card drawer ──
+let _spdIdx = null;
+
+function spOpenDrawer(globalIdx) {
+  _spdIdx = globalIdx;
+  const c = _sprintCards[globalIdx];
+  if (!c) return;
+  document.getElementById('spd-card-id').textContent = c.cardId;
+  document.getElementById('spd-title-view').textContent = c.title || '(chưa có tiêu đề)';
+  spdRenderBody();
+  document.getElementById('sp-drawer-backdrop').style.display = 'block';
+  document.getElementById('sp-drawer').style.display = 'block';
+}
+
+function spCloseDrawer() {
+  document.getElementById('sp-drawer-backdrop').style.display = 'none';
+  document.getElementById('sp-drawer').style.display = 'none';
+  _spdIdx = null;
+}
+
+function spdRenderBody() {
+  const c = _sprintCards[_spdIdx];
+  if (!c) return;
+  const sprint = _sprintList.find(s => s.id === c.sprintId);
+  const otherSprints = _sprintList.filter(s => s.id !== c.sprintId);
+  const deadlineBadge = spPrepDeadlineBadge(c, sprint);
+
+  document.getElementById('spd-body').innerHTML = `
+    <!-- Jira link -->
+    <a href="${JIRA_BASE}${esc(c.cardId)}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--blue-text);margin-bottom:16px;text-decoration:none;padding:4px 10px;border:1px solid var(--blue-border);border-radius:8px;background:var(--blue-bg)">🔗 Mở Jira ↗</a>
+    ${deadlineBadge ? `<div style="margin-bottom:16px">${deadlineBadge}</div>` : ''}
+
+    <!-- Sprint info -->
+    <div style="font-size:11px;color:var(--text3);margin-bottom:16px">Sprint: <strong style="color:var(--text2)">${esc(sprint?.name||'—')}</strong>${sprint?.startDate ? ` · ${fmtDate(sprint.startDate)}` : ''}${sprint?.endDate ? ` → ${fmtDate(sprint.endDate)}` : ''}</div>
+
+    <!-- Ghi chú -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ghi chú nhanh</div>
+      <textarea onblur="spdSave('note',this.value)" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);resize:vertical;min-height:60px;box-sizing:border-box;outline:none" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">${esc(c.note||'')}</textarea>
+    </div>
+
+    <!-- Ngày start/end -->
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ngày start dev</div>
+        <input type="date" value="${c.cardStart||''}" onchange="spdSave('cardStart',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box">
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ngày end dev</div>
+        <input type="date" value="${c.cardEnd||''}" onchange="spdSave('cardEnd',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box">
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
+
+    <!-- Chuẩn bị -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">🎯 Chuẩn bị trước sprint</div>
+      ${[['prepChecked','Đã check & confirm yêu cầu'],['prepSupplemented','Đã bổ sung thiếu sót'],['prepDocs','Đã viết Docs / AC']].map(([field,label]) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--surface2);margin-bottom:6px;cursor:pointer" onclick="spdToggle('${field}')">
+          <div style="width:20px;height:20px;border-radius:5px;border:2px solid ${c[field]?'var(--green-border)':'var(--border)'};background:${c[field]?'var(--green-bg)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--green-text);flex-shrink:0">${c[field]?'✓':''}</div>
+          <span style="font-size:13px;color:${c[field]?'var(--text2)':'var(--text)'};${c[field]?'text-decoration:line-through;':''}font-weight:500">${label}</span>
+        </div>`).join('')}
+    </div>
+
+    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
+
+    <!-- AC -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Acceptance Criteria</div>
+      <textarea onblur="spdSave('ac',this.value)" rows="6" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);resize:vertical;box-sizing:border-box;outline:none;line-height:1.6" onfocus="this.style.borderColor='var(--blue)'" placeholder="AC 1:&#10;AC 2:&#10;AC 3:">${esc(c.ac||'')}</textarea>
+    </div>
+
+    <!-- Ghi chú bổ sung -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ghi chú yêu cầu bổ sung</div>
+      <textarea onblur="spdSave('extra',this.value)" rows="4" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);resize:vertical;box-sizing:border-box;outline:none;line-height:1.6" onfocus="this.style.borderColor='var(--blue)'" placeholder="Yêu cầu còn thiếu, edge case...">${esc(c.extra||'')}</textarea>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
+
+    <!-- Dev status + prod -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">🔄 Theo dõi tiến độ</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select onchange="spdSave('devStatus',this.value)" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;cursor:pointer">
+          ${['todo','inprogress','review','returned','done'].map(s=>`<option value="${s}"${(c.devStatus||'todo')===s?' selected':''}>${SP_STATUS_LABEL[s]}</option>`).join('')}
+        </select>
+        <div onclick="spdToggle('prodCheck')" style="display:flex;align-items:center;gap:8px;padding:7px 12px;border:1.5px solid ${c.prodCheck?'#fed7aa':'var(--border)'};border-radius:8px;background:${c.prodCheck?'#fff7ed':'var(--surface2)'};cursor:pointer">
+          <div style="width:18px;height:18px;border-radius:4px;border:2px solid ${c.prodCheck?'#fb923c':'var(--border)'};background:${c.prodCheck?'#fed7aa':'transparent'};display:flex;align-items:center;justify-content:center;font-size:11px">${c.prodCheck?'✓':''}</div>
+          <span style="font-size:13px;font-weight:600;color:${c.prodCheck?'#ea580c':'var(--text2)'}">📦 Cần check Prod</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Move + Delete -->
+    ${otherSprints.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Chuyển sang sprint</div>
+      <select onchange="spMoveCard(${_spdIdx},this.value);this.value=''" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;cursor:pointer">
+        <option value="">— Chọn sprint —</option>
+        ${otherSprints.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+
+    <button onclick="spDeleteCard(${_spdIdx})" style="width:100%;padding:9px;border:1px solid #fecaca;border-radius:8px;background:#fef2f2;color:#dc2626;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">🗑 Xoá card</button>
+  `;
+}
+
+function spdSave(field, value) {
+  spSaveField(_spdIdx, field, typeof value === 'string' ? value : value);
+  // Re-render body to reflect changes (e.g. deadlineBadge after toggle)
+  const c = _sprintCards[_spdIdx];
+  if (c) {
+    document.getElementById('spd-title-view').textContent = c.title || '(chưa có tiêu đề)';
+    document.getElementById('spd-card-id').textContent = c.cardId;
+  }
+}
+
+function spdToggle(field) {
+  spSaveField(_spdIdx, field, !_sprintCards[_spdIdx]?.[field]);
+  spdRenderBody();
+}
+
+function spdEditField(field) {
+  if (field !== 'title') return;
+  const el = document.getElementById('spd-title-view');
+  const c = _sprintCards[_spdIdx];
+  if (!el || !c) return;
+  const inp = document.createElement('input');
+  inp.value = c.title || '';
+  inp.style.cssText = 'width:100%;font-size:15px;font-weight:700;border:1.5px solid var(--blue);border-radius:6px;padding:2px 4px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;box-sizing:border-box';
+  inp.onblur = () => { spdSave('title', inp.value); inp.replaceWith(document.getElementById('spd-title-view') || inp); };
+  inp.onkeydown = e => { if (e.key === 'Enter' || e.key === 'Escape') inp.blur(); };
+  el.replaceWith(inp);
+  inp.focus(); inp.select();
+}
+
 function spMoveCard(globalIdx, targetSprintId) {
   const c = _sprintCards[globalIdx];
   if (!c || !targetSprintId) return;
@@ -1821,6 +1973,7 @@ function spMoveCard(globalIdx, targetSprintId) {
   const target = _sprintList.find(s => s.id === targetSprintId);
   c.sprintId = targetSprintId;
   spSave();
+  spCloseDrawer();
   renderSprintDetailView(fromSprintId);
   showToast(`↔ Đã chuyển ${c.cardId} → ${target?.name || targetSprintId}`, 'success', 2000);
 }
@@ -1842,9 +1995,18 @@ function spEditNote(globalIdx) {
 function spSaveField(globalIdx, field, value) {
   const c = _sprintCards[globalIdx];
   if (!c) return;
-  c[field] = value.trim !== undefined ? value.trim() : value;
+  c[field] = (typeof value === 'string') ? value.trim() : value;
   spSave();
-  renderSprintDetailView(_spActiveSprintId);
+  // If drawer is open, only re-render card list (not full page) to avoid closing drawer
+  if (_spdIdx !== null) {
+    const sprintId = _spActiveSprintId;
+    const allCards = _sprintCards.filter(ca => ca.sprintId === sprintId);
+    const filtered = _spCardFilter === 'all' ? allCards : spFilterCards(allCards, _spCardFilter);
+    const listEl = document.getElementById('sp-card-list');
+    if (listEl) listEl.innerHTML = renderCardList(filtered, sprintId);
+  } else {
+    renderSprintDetailView(_spActiveSprintId);
+  }
 }
 
 function spToggleAC(globalIdx) {
@@ -1860,6 +2022,7 @@ function spDeleteCard(globalIdx) {
   _sprintCards.splice(globalIdx, 1);
   _spExpandedAC.delete(globalIdx);
   spSave();
+  spCloseDrawer();
   renderSprintDetailView(sprintId);
   showToast(`🗑 Đã xoá ${c.cardId}`, 'info', 1500);
 }
