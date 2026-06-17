@@ -366,13 +366,23 @@
   .drawer-action-block.blue   { border-left-color:var(--blue); background:var(--blue-bg); border-color:var(--blue-border); }
   .drawer-action-block.amber  { border-left-color:var(--amber); background:var(--amber-bg); border-color:var(--amber-border); }
   .drawer-action-block.purple { border-left-color:var(--purple); background:var(--purple-bg); border-color:var(--purple-border); }
-  .dab-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:7px; }
+  .dab-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:7px; display:flex; align-items:center; gap:6px; }
   .dab-content { font-size:13px; font-weight:600; color:var(--text); line-height:1.6; white-space:pre-wrap; }
+  .dab-content.empty { color:var(--text3); font-weight:400; font-style:italic; }
 
   /* Drawer info rows */
   .drawer-row { display:flex; flex-direction:column; gap:4px; }
-  .dr-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); }
+  .dr-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); display:flex; align-items:center; gap:6px; }
   .dr-value { font-size:13px; color:var(--text2); line-height:1.6; white-space:pre-wrap; }
+  .dr-value.empty { color:var(--text3); font-style:italic; }
+
+  /* Inline edit */
+  .edit-btn { background:none; border:none; cursor:pointer; font-size:12px; opacity:0; padding:0 2px; transition:opacity .15s; line-height:1; }
+  .dab-label:hover .edit-btn, .dr-label:hover .edit-btn { opacity:.6; }
+  .edit-btn:hover { opacity:1 !important; }
+  .inline-edit-ta { width:100%; min-height:72px; border:1px solid var(--blue-border); border-radius:7px; padding:8px 10px; font-size:13px; font-family:var(--font); resize:vertical; background:var(--surface); color:var(--text); line-height:1.6; outline:none; }
+  .inline-edit-ta:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+  .inline-edit-actions { display:flex; gap:6px; margin-top:6px; }
 
   /* Waiting block */
   .drawer-wait {
@@ -1515,13 +1525,13 @@ function openDrawer(idx) {
   const tagCls = { red:'tag-red', orange:'tag-orange', blue:'tag-blue', amber:'tag-amber', purple:'tag-purple', gray:'tag-gray' }[acColor] || 'tag-gray';
   const naHtml = `
     <div class="drawer-action-block ${acColor}">
-      <div class="dab-label">✅ Cần làm gì</div>
-      <div class="dab-content">${esc(t.nextAction || '❓ Chưa xác định — cần làm rõ với stakeholder')}</div>
+      <div class="dab-label">✅ Cần làm gì <button class="edit-btn" onclick="drawerEditField(${idx},'nextAction')" title="Chỉnh sửa">✏️</button></div>
+      <div class="dab-content${t.nextAction ? '' : ' empty'}" id="field-nextAction">${esc(t.nextAction || 'Chưa xác định — nhấn ✏️ để thêm')}</div>
     </div>`;
 
-  // Description & note
-  const descHtml = t.description ? `<div class="drawer-row"><div class="dr-label">Mô tả</div><div class="dr-value">${esc(t.description)}</div></div>` : '';
-  const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn</div><div class="dr-value">${esc(t.note)}</div></div>` : '';
+  // Description & note — always shown so user can add even if empty
+  const descHtml = `<div class="drawer-row"><div class="dr-label">Mô tả <button class="edit-btn" onclick="drawerEditField(${idx},'description')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.description ? '' : ' empty'}" id="field-description">${esc(t.description || 'Chưa có — nhấn ✏️ để thêm')}</div></div>`;
+  const noteHtml = `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn <button class="edit-btn" onclick="drawerEditField(${idx},'note')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.note ? '' : ' empty'}" id="field-note">${esc(t.note || 'Chưa có — nhấn ✏️ để thêm')}</div></div>`;
 
   // Write-back row (only if GSheets connected)
   const updateHtml = true ? `
@@ -1555,7 +1565,7 @@ function openDrawer(idx) {
     ${naHtml}
     ${waitHtml}
     ${riskHtml}
-    ${(t.description || t.note) ? '<div class="drawer-divider"></div>' : ''}
+    <div class="drawer-divider"></div>
     ${descHtml}
     ${noteHtml}
     ${updateHtml}
@@ -1585,6 +1595,32 @@ function drawerUpdateStatus(idx, newStatus) {
   const active = _taskStore.filter(x => x.group !== 'done' && x.hidden !== 'ok');
   renderMood(active); renderSidebar(active); renderMain(active);
   closeDrawer();
+}
+
+function drawerEditField(idx, field) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  const el = document.getElementById('field-' + field);
+  if (!el) return;
+  const cur = t[field] || '';
+  el.innerHTML = `
+    <textarea class="inline-edit-ta">${cur.replace(/</g,'&lt;')}</textarea>
+    <div class="inline-edit-actions">
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:12px" onclick="drawerSaveField(${idx},'${field}')">💾 Lưu</button>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openDrawer(${idx})">Huỷ</button>
+    </div>`;
+  el.querySelector('textarea').focus();
+}
+
+function drawerSaveField(idx, field) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  const ta = document.querySelector('#field-' + field + ' textarea');
+  if (!ta) return;
+  t[field] = ta.value.trim();
+  saveTasksToStorage();
+  showToast('✏️ Đã lưu', 'success', 1500);
+  openDrawer(idx);
 }
 
 function closeDrawer() {
