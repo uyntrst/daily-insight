@@ -738,6 +738,34 @@
   }
   .modal-textarea { resize:vertical; min-height:72px; line-height:1.6; }
   .modal-footer { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+
+  /* ── SPRINT ── */
+  .sp-card { display:flex; align-items:flex-start; gap:12px; padding:14px 18px; background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; cursor:pointer; transition:background .15s; }
+  .sp-card:hover { background:var(--hover); }
+  .sp-card-left { flex:1; min-width:0; }
+  .sp-card-id { font-size:11px; font-weight:700; color:var(--blue-text); text-decoration:none; }
+  .sp-card-id:hover { text-decoration:underline; }
+  .sp-card-title { font-size:13px; font-weight:600; color:var(--text); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sp-card-note { font-size:11px; color:var(--text3); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sp-badge { display:inline-flex; align-items:center; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; flex-shrink:0; }
+  .sp-badge.todo      { background:var(--surface2); color:var(--text3); border:1px solid var(--border); }
+  .sp-badge.inprogress{ background:var(--amber-bg); color:var(--amber-text); border:1px solid var(--amber-border); }
+  .sp-badge.review    { background:var(--blue-bg); color:var(--blue-text); border:1px solid var(--blue-border); }
+  .sp-badge.returned  { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+  .sp-badge.done      { background:var(--green-bg); color:var(--green-text); border:1px solid var(--green-border); }
+  .sp-filter-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+  .sp-filter-btn { font-size:11px; font-weight:600; padding:4px 12px; border-radius:20px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; font-family:var(--font); transition:all .15s; }
+  .sp-filter-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+  /* Sprint modal */
+  .sp-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:600; }
+  .sp-modal { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:min(600px,95vw); max-height:90vh; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:16px; z-index:601; padding:24px; box-sizing:border-box; }
+  .sp-modal h3 { font-size:15px; font-weight:700; margin:0 0 18px; color:var(--text); }
+  .sp-field { margin-bottom:14px; }
+  .sp-label { font-size:11px; font-weight:600; color:var(--text2); margin-bottom:5px; display:block; }
+  .sp-input, .sp-select, .sp-ta { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-family:var(--font); background:var(--surface2); color:var(--text); outline:none; box-sizing:border-box; }
+  .sp-input:focus, .sp-select:focus, .sp-ta:focus { border-color:var(--blue); background:var(--surface); }
+  .sp-ta { resize:vertical; min-height:80px; line-height:1.6; }
+  .sp-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 </style>
 </head>
 <body>
@@ -767,6 +795,9 @@
     </div>
     <div class="topbar-right">
       <span class="mood-chip" id="mood-chip">⏳ Chưa có dữ liệu</span>
+
+      <!-- Sprint button -->
+      <button class="btn btn-ghost" onclick="toggleSprintPage()" style="gap:5px">🏃 Sprint</button>
 
       <!-- Done tasks button -->
       <button class="btn btn-ghost" id="done-btn" onclick="toggleDonePage()" style="display:none">
@@ -911,6 +942,71 @@
   <div class="body" id="dashboard" style="display:none">
     <aside class="focus-col" id="sidebar"></aside>
     <main class="main-panel" id="main-panel"></main>
+  </div>
+
+  <!-- ── SPRINT PAGE ── -->
+  <div id="sprint-page" style="display:none;padding:28px 32px;max-width:900px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button onclick="toggleSprintPage()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Quay lại</button>
+      <h2 style="font-size:16px;font-weight:700;color:var(--text);margin:0">🏃 Card in Sprint</h2>
+      <span id="sprint-count" style="font-size:12px;color:var(--text3)"></span>
+      <div style="margin-left:auto">
+        <button onclick="openSprintCardModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
+      </div>
+    </div>
+    <div class="sp-filter-bar" id="sprint-filter-bar">
+      <button class="sp-filter-btn active" data-filter="all" onclick="spSetFilter('all',this)">Tất cả</button>
+      <button class="sp-filter-btn" data-filter="todo" onclick="spSetFilter('todo',this)">To Do</button>
+      <button class="sp-filter-btn" data-filter="inprogress" onclick="spSetFilter('inprogress',this)">In Progress</button>
+      <button class="sp-filter-btn" data-filter="review" onclick="spSetFilter('review',this)">In Review / QA</button>
+      <button class="sp-filter-btn" data-filter="returned" onclick="spSetFilter('returned',this)">⚠️ Returned</button>
+      <button class="sp-filter-btn" data-filter="done" onclick="spSetFilter('done',this)">Done</button>
+    </div>
+    <div id="sprint-list"></div>
+  </div>
+
+  <!-- Sprint card modal -->
+  <div class="sp-modal-overlay" id="sp-modal-overlay" onclick="closeSprintCardModal()"></div>
+  <div class="sp-modal" id="sp-modal">
+    <h3 id="sp-modal-title">＋ Thêm card</h3>
+    <input type="hidden" id="sp-edit-idx" value="">
+    <div class="sp-row2">
+      <div class="sp-field">
+        <label class="sp-label">Card ID <span style="color:var(--text3);font-weight:400">(VD: CSP-6204)</span></label>
+        <input class="sp-input" id="sp-id" placeholder="CSP-XXXX">
+      </div>
+      <div class="sp-field">
+        <label class="sp-label">Trạng thái</label>
+        <select class="sp-select" id="sp-status">
+          <option value="todo">To Do</option>
+          <option value="inprogress">In Progress</option>
+          <option value="review">In Review / QA</option>
+          <option value="returned">Returned</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+    </div>
+    <div class="sp-field">
+      <label class="sp-label">Tiêu đề card</label>
+      <input class="sp-input" id="sp-title" placeholder="Tên tính năng / task...">
+    </div>
+    <div class="sp-field">
+      <label class="sp-label">Ghi chú nhanh</label>
+      <textarea class="sp-ta" id="sp-note" rows="2" placeholder="Vấn đề, context nhanh..."></textarea>
+    </div>
+    <div class="sp-field">
+      <label class="sp-label">Acceptance Criteria</label>
+      <textarea class="sp-ta" id="sp-ac" rows="4" placeholder="AC 1: ...&#10;AC 2: ...&#10;AC 3: ..."></textarea>
+    </div>
+    <div class="sp-field">
+      <label class="sp-label">Ghi chú yêu cầu bổ sung</label>
+      <textarea class="sp-ta" id="sp-extra" rows="3" placeholder="Yêu cầu còn thiếu, edge case cần bổ sung..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSprintCardModal()">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveSprintCard()">💾 Lưu</button>
+      <button id="sp-delete-btn" class="btn" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;display:none" onclick="deleteSprintCard()">🗑 Xoá</button>
+    </div>
   </div>
 
   <!-- ── DONE PAGE ── -->
@@ -1443,6 +1539,131 @@ function undoneTask(idx) {
   showToast(`↩ Đã mở lại: ${t.task}`, 'info');
   renderDonePage();
   updateDoneCount();
+}
+
+// ── SPRINT ───────────────────────────────────────────────────────────────────
+const JIRA_BASE = 'https://atlassiansuite.mservice.com.vn:8443/browse/';
+const SP_STATUS_LABEL = { todo:'To Do', inprogress:'In Progress', review:'In Review / QA', returned:'Returned', done:'Done' };
+
+let _sprintStore = [];
+let _sprintFilter = 'all';
+
+function spLoad() {
+  try { _sprintStore = JSON.parse(localStorage.getItem('_sprintStore') || '[]'); } catch { _sprintStore = []; }
+}
+function spSave() {
+  localStorage.setItem('_sprintStore', JSON.stringify(_sprintStore));
+  gistAutoSave();
+}
+
+function toggleSprintPage() {
+  const page = document.getElementById('sprint-page');
+  const dash = document.getElementById('dashboard');
+  const done = document.getElementById('done-page');
+  if (page.style.display === 'none') {
+    done.style.display = 'none';
+    dash.style.display = 'none';
+    page.style.display = 'block';
+    spLoad();
+    renderSprintPage();
+  } else {
+    page.style.display = 'none';
+    dash.style.display = 'grid';
+  }
+}
+
+function spSetFilter(f, btn) {
+  _sprintFilter = f;
+  document.querySelectorAll('.sp-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSprintList();
+}
+
+function renderSprintPage() {
+  document.getElementById('sprint-count').textContent = `${_sprintStore.length} cards`;
+  renderSprintList();
+}
+
+function renderSprintList() {
+  const list = document.getElementById('sprint-list');
+  const cards = _sprintFilter === 'all' ? _sprintStore : _sprintStore.filter(c => c.status === _sprintFilter);
+  if (!cards.length) {
+    list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">${_sprintFilter === 'all' ? 'Chưa có card nào — nhấn ＋ Thêm card' : 'Không có card nào trong trạng thái này'}</div>`;
+    return;
+  }
+  list.innerHTML = cards.map(c => {
+    const realIdx = _sprintStore.indexOf(c);
+    const badge = `<span class="sp-badge ${c.status}">${SP_STATUS_LABEL[c.status] || c.status}</span>`;
+    const notePreview = c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : '';
+    const acBadge = c.ac ? `<span style="font-size:10px;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green-border);border-radius:4px;padding:1px 6px;margin-left:6px">AC</span>` : '';
+    const extraBadge = c.extra ? `<span style="font-size:10px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:4px;padding:1px 6px;margin-left:4px">Bổ sung</span>` : '';
+    return `<div class="sp-card" onclick="openSprintCardModal(${realIdx})">
+      <div class="sp-card-left">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <a class="sp-card-id" href="${JIRA_BASE}${esc(c.id)}" target="_blank" onclick="event.stopPropagation()">${esc(c.id)}</a>
+          ${acBadge}${extraBadge}
+        </div>
+        <div class="sp-card-title">${esc(c.title)}</div>
+        ${notePreview}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        ${badge}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openSprintCardModal(idx) {
+  const isEdit = idx !== undefined;
+  document.getElementById('sp-modal-title').textContent = isEdit ? '✏️ Chỉnh sửa card' : '＋ Thêm card';
+  document.getElementById('sp-edit-idx').value = isEdit ? idx : '';
+  document.getElementById('sp-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
+  const c = isEdit ? _sprintStore[idx] : {};
+  document.getElementById('sp-id').value = c.id || '';
+  document.getElementById('sp-title').value = c.title || '';
+  document.getElementById('sp-status').value = c.status || 'todo';
+  document.getElementById('sp-note').value = c.note || '';
+  document.getElementById('sp-ac').value = c.ac || '';
+  document.getElementById('sp-extra').value = c.extra || '';
+  document.getElementById('sp-modal-overlay').style.display = 'block';
+  document.getElementById('sp-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('sp-id').focus(), 50);
+}
+
+function closeSprintCardModal() {
+  document.getElementById('sp-modal-overlay').style.display = 'none';
+  document.getElementById('sp-modal').style.display = 'none';
+}
+
+function saveSprintCard() {
+  const id = document.getElementById('sp-id').value.trim().toUpperCase();
+  if (!id) { document.getElementById('sp-id').focus(); showToast('⚠️ Nhập Card ID', 'error'); return; }
+  const card = {
+    id,
+    title:  document.getElementById('sp-title').value.trim(),
+    status: document.getElementById('sp-status').value,
+    note:   document.getElementById('sp-note').value.trim(),
+    ac:     document.getElementById('sp-ac').value.trim(),
+    extra:  document.getElementById('sp-extra').value.trim(),
+  };
+  const editIdx = document.getElementById('sp-edit-idx').value;
+  if (editIdx !== '') { _sprintStore[+editIdx] = card; }
+  else { _sprintStore.unshift(card); }
+  spSave();
+  renderSprintPage();
+  closeSprintCardModal();
+  showToast(`✅ Đã lưu ${id}`, 'success', 1500);
+}
+
+function deleteSprintCard() {
+  const idx = +document.getElementById('sp-edit-idx').value;
+  const c = _sprintStore[idx];
+  if (!c || !confirm(`Xoá card ${c.id}? Không thể hoàn tác.`)) return;
+  _sprintStore.splice(idx, 1);
+  spSave();
+  renderSprintPage();
+  closeSprintCardModal();
+  showToast(`🗑 Đã xoá ${c.id}`, 'info', 1500);
 }
 
 // ── ADD TASK ─────────────────────────────────────────────────────────────────
@@ -2317,6 +2538,7 @@ const _gistConfig = {
 function gistConnected() { return !!(_gistConfig.token && _gistConfig.gistId); }
 
 window.addEventListener('DOMContentLoaded', () => {
+  spLoad();
   if (_gistConfig.token) document.getElementById('gist-token').value = _gistConfig.token;
   if (_gistConfig.gistId) document.getElementById('gist-id').value = _gistConfig.gistId;
   if (gistConnected()) _gistMarkConnected();
@@ -2375,15 +2597,10 @@ async function connectGist() {
   try {
     let id = gistId;
     if (!id) {
-      // Tạo Gist mới chỉ khi đã có data để push
-      if (!_taskStore.length) {
-        showToast('⚠️ Nhập Gist ID để pull data về, hoặc import file trước rồi mới tạo Gist mới', 'error', 5000);
-        return;
-      }
       const resp = await fetch('https://api.github.com/gists', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
-        body: JSON.stringify({ description: 'PM/PO Daily Insight — task data', public: false, files: { 'tasks.json': { content: JSON.stringify({ tasks: _taskStore, worklogs: {}, interrupts: {} }, null, 2) } } })
+        body: JSON.stringify({ description: 'PM/PO Daily Insight — task data', public: false, files: { 'tasks.json': { content: JSON.stringify(_taskStore.length ? _taskStore : []) } } })
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} — kiểm tra token có quyền gist không`);
       const data = await resp.json();
@@ -2453,15 +2670,12 @@ async function _gistPullRaw(token, id) {
   const content = data.files['tasks.json']?.content;
   if (!content) return null;
   const snap = JSON.parse(content);
-  // Handle cả 2 format: { tasks: [...] } hoặc array thẳng [...]
-  const tasks = Array.isArray(snap) ? snap : snap.tasks;
-  if (tasks?.length) renderDashboard(tasks, 'GitHub Gist', 'GitHub Gist');
-  if (!Array.isArray(snap)) {
-    if (snap.worklogs)   Object.entries(snap.worklogs).forEach(([k,v])   => localStorage.setItem(k, JSON.stringify(v)));
-    if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-  }
+  if (snap.tasks?.length) renderDashboard(snap.tasks, 'GitHub Gist', 'GitHub Gist');
+  if (snap.worklogs)   Object.entries(snap.worklogs).forEach(([k,v])   => localStorage.setItem(k, JSON.stringify(v)));
+  if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
+  if (snap.sprint)     { _sprintStore = snap.sprint; localStorage.setItem('_sprintStore', JSON.stringify(_sprintStore)); }
   document.getElementById('gs-status-text').textContent = `Pull lúc ${new Date().toLocaleTimeString('vi-VN')}`;
-  return tasks;
+  return snap.tasks;
 }
 
 async function gistPush() {
@@ -2672,7 +2886,7 @@ function driveCollectAll() {
       if (k.startsWith('intr_'))    interrupts[k] = JSON.parse(localStorage.getItem(k));
     } catch {}
   }
-  return { tasks: _taskStore, worklogs, interrupts, savedAt: new Date().toISOString(), version: 2 };
+  return { tasks: _taskStore, worklogs, interrupts, sprint: _sprintStore, savedAt: new Date().toISOString(), version: 2 };
 }
 
 function driveAutoSave() { /* no-op: backup now via Claude MCP */ }
