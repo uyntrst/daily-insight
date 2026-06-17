@@ -1694,23 +1694,37 @@ function spUpdateSprintDate(sprintId, field, value) {
 }
 
 
-function spToggleNote(sprintId) {
-  const col = document.getElementById('sp-note-col');
-  const grid = document.getElementById('sp-main-grid');
-  const btn = document.getElementById('sp-note-toggle-btn');
-  if (!col) return;
-  const visible = col.style.display !== 'none';
-  if (visible) {
-    col.style.display = 'none';
-    grid.style.gridTemplateColumns = '1fr';
-    if (btn) { btn.style.background = 'none'; btn.style.color = 'var(--text2)'; btn.style.borderColor = 'var(--border)'; }
-  } else {
-    col.style.display = 'block';
-    grid.style.gridTemplateColumns = 'repeat(12,1fr)';
-    document.getElementById('sp-card-col').style.gridColumn = 'span 9';
-    col.style.gridColumn = 'span 3';
-    if (btn) { btn.style.background = 'var(--blue-bg)'; btn.style.color = 'var(--blue-text)'; btn.style.borderColor = 'var(--blue-border)'; }
+function spSwitchTab(tab, sprintId) {
+  const cardsPanel = document.getElementById('sp-tab-cards-panel');
+  const notePanel  = document.getElementById('sp-tab-note-panel');
+  const tabCards   = document.getElementById('sp-tab-cards');
+  const tabNote    = document.getElementById('sp-tab-note');
+  const activeStyle   = 'border-bottom:2px solid var(--blue);margin-bottom:-2px;color:var(--blue)';
+  const inactiveStyle = 'border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2)';
+  if (tab === 'note') {
+    cardsPanel.style.display = 'none';
+    notePanel.style.display  = 'block';
+    if (tabCards) tabCards.style.cssText = tabCards.style.cssText.replace(/border-bottom:[^;]+/, 'border-bottom:2px solid transparent'); tabCards && (tabCards.style.color = 'var(--text2)');
+    if (tabNote)  { tabNote.style.borderBottom = '2px solid var(--blue)'; tabNote.style.color = 'var(--blue)'; }
     spNoteInit();
+    // Add note tab if not exists (first time creating note)
+    const sprintObj = _sprintList.find(s => s.id === sprintId);
+    if (tabNote === null && sprintObj) {
+      const tabBar = document.querySelector('[id="sp-tab-cards"]')?.parentElement;
+      if (tabBar) {
+        const nb = document.createElement('button');
+        nb.id = 'sp-tab-note';
+        nb.setAttribute('onclick', `spSwitchTab('note','${sprintId}')`);
+        nb.style.cssText = 'padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;background:none;border:none;border-bottom:2px solid var(--blue);margin-bottom:-2px;color:var(--blue);font-family:var(--font)';
+        nb.textContent = '📝 Ghi chú';
+        tabBar.appendChild(nb);
+      }
+    }
+  } else {
+    cardsPanel.style.display = 'block';
+    notePanel.style.display  = 'none';
+    if (tabCards) { tabCards.style.borderBottom = '2px solid var(--blue)'; tabCards.style.color = 'var(--blue)'; }
+    if (tabNote)  { tabNote.style.borderBottom  = '2px solid transparent'; tabNote.style.color  = 'var(--text2)'; }
   }
 }
 
@@ -1751,8 +1765,21 @@ function spNoteSave(ed) {
   _spNoteSaveTimer = setTimeout(() => {
     const s = _sprintList.find(sp => sp.id === ed.dataset.sprint);
     if (!s) return;
+    const hadNote = !!s.noteHtml;
     s.noteHtml = ed.innerHTML;
     spSave();
+    // Add note tab if this is the first time note gets content
+    if (!hadNote && s.noteHtml && !document.getElementById('sp-tab-note')) {
+      const tabBar = document.getElementById('sp-tab-cards')?.parentElement;
+      if (tabBar) {
+        const nb = document.createElement('button');
+        nb.id = 'sp-tab-note';
+        nb.onclick = () => spSwitchTab('note', s.id);
+        nb.style.cssText = 'padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2);font-family:var(--font)';
+        nb.textContent = '📝 Ghi chú';
+        tabBar.appendChild(nb);
+      }
+    }
   }, 400);
 }
 
@@ -1802,35 +1829,36 @@ function renderSprintDetailView(sprintId) {
           ${sprint.endDate   ? `<span style="font-size:11px;color:var(--text3)"><b>End:</b> ${sprint.endDate}</span>`   : ''}
         </div>` : ''}
       </div>
-      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        <button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text2)">📝 Ghi chú</button>
+      <div style="margin-left:auto">
         <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
       </div>
     </div>
-    <div id="sp-main-grid" style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start;margin-top:12px">
-      <div id="sp-card-col" style="min-width:0">
-        <div class="sp-filter-bar" style="margin-bottom:16px">
-          ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
-        </div>
-        <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>
+    <div style="display:flex;align-items:center;gap:0;border-bottom:2px solid var(--border);margin-top:14px;margin-bottom:0">
+      <button id="sp-tab-cards" onclick="spSwitchTab('cards','${sprintId}')" style="padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;background:none;border:none;border-bottom:2px solid var(--blue);margin-bottom:-2px;color:var(--blue);font-family:var(--font)">📋 Cards</button>
+      ${sprint.noteHtml ? `<button id="sp-tab-note" onclick="spSwitchTab('note','${sprintId}')" style="padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2);font-family:var(--font)">📝 Ghi chú</button>` : `<button onclick="spSwitchTab('note','${sprintId}')" style="padding:8px 14px;font-size:12px;cursor:pointer;background:none;border:none;color:var(--text3);font-family:var(--font);margin-left:4px">＋ Ghi chú</button>`}
+    </div>
+    <div id="sp-tab-cards-panel" style="margin-top:14px">
+      <div class="sp-filter-bar" style="margin-bottom:16px">
+        ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
       </div>
-      <div id="sp-note-col" style="display:none;position:sticky;top:16px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
-            <div style="display:flex;gap:4px">
-              <button onclick="spNoteExec('bold')" title="Bold" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);color:var(--text2)">B</button>
-              <button onclick="spNoteExec('italic')" title="Italic" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2);font-style:italic">I</button>
-              <button onclick="spNoteExec('insertUnorderedList')" title="Bullet list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">•≡</button>
-              <button onclick="spNoteExec('insertOrderedList')" title="Numbered list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">1≡</button>
-              <button onclick="spNoteExec('insertHorizontalRule')" title="Divider" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">—</button>
-            </div>
+      <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>
+    </div>
+    <div id="sp-tab-note-panel" style="display:none;margin-top:14px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
+          <div style="display:flex;gap:4px">
+            <button onclick="spNoteExec('bold')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);color:var(--text2)">B</button>
+            <button onclick="spNoteExec('italic')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2);font-style:italic">I</button>
+            <button onclick="spNoteExec('insertUnorderedList')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">•≡</button>
+            <button onclick="spNoteExec('insertOrderedList')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">1≡</button>
+            <button onclick="spNoteExec('insertHorizontalRule')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">—</button>
           </div>
-          <div id="sp-note-editor" contenteditable="true" spellcheck="false"
-            style="min-height:240px;max-height:75vh;overflow-y:auto;padding:14px 16px;font-size:13px;color:var(--text);line-height:1.7;outline:none;font-family:var(--font)"
-            data-sprint="${sprintId}"
-          >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
         </div>
+        <div id="sp-note-editor" contenteditable="true" spellcheck="false"
+          style="min-height:300px;padding:16px 18px;font-size:13px;color:var(--text);line-height:1.8;outline:none;font-family:var(--font)"
+          data-sprint="${sprintId}"
+        >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
       </div>
     </div>
     `;
