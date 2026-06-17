@@ -962,8 +962,9 @@
       </select>
     </div>
     <div>
-      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Next action</div>
-      <input id="nt-next" placeholder="Bước tiếp theo cụ thể..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Checklist việc cần làm</div>
+      <div id="nt-cl-rows"></div>
+      <button class="cl-add-row-btn" onclick="ntClAddRow()" style="margin-top:4px">＋ Thêm việc</button>
     </div>
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Mô tả</div>
@@ -1475,13 +1476,39 @@ function renderNtImgGallery() {
   gallery.appendChild(label);
 }
 
+function ntClAddRow() {
+  const container = document.getElementById('nt-cl-rows');
+  const i = container.children.length;
+  const div = document.createElement('div');
+  div.className = 'cl-edit-row';
+  div.id = `nt-cl-row-${i}`;
+  div.innerHTML = `<button class="cl-edit-check" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':'';" type="button"></button>
+    <input class="cl-edit-input" placeholder="Việc cần làm…" />
+    <button class="cl-edit-del" onclick="this.closest('.cl-edit-row').remove()" type="button">×</button>`;
+  container.appendChild(div);
+  div.querySelector('.cl-edit-input').focus();
+}
+
+function ntClCollect() {
+  const rows = document.querySelectorAll('#nt-cl-rows .cl-edit-row');
+  const items = [];
+  rows.forEach(row => {
+    const text = row.querySelector('.cl-edit-input')?.value.trim();
+    if (!text) return;
+    const done = row.querySelector('.cl-edit-check')?.classList.contains('checked') || false;
+    items.push({ text, done });
+  });
+  return items;
+}
+
 function openAddTaskModal() {
   _ntImages = [];
   document.getElementById('add-task-overlay').style.display = 'block';
   document.getElementById('add-task-modal').style.display = 'block';
-  ['nt-task','nt-project','nt-deadline','nt-next','nt-desc'].forEach(id => {
+  ['nt-task','nt-project','nt-deadline','nt-desc'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  document.getElementById('nt-cl-rows').innerHTML = '';
   document.getElementById('nt-status').value = '01.In progress';
   renderNtImgGallery();
   setTimeout(() => {
@@ -1516,7 +1543,8 @@ function submitAddTask() {
     task:       taskName,
     project:    document.getElementById('nt-project').value.trim(),
     deadline:   document.getElementById('nt-deadline').value || null,
-    nextAction: document.getElementById('nt-next').value.trim(),
+    nextAction: '',
+    checklist:  ntClCollect().length ? ntClCollect() : undefined,
     description:document.getElementById('nt-desc').value.trim(),
     images:     _ntImages.length ? [..._ntImages] : undefined,
     status,
