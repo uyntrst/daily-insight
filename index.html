@@ -1685,6 +1685,15 @@ function spOpenDetail(sprintId) {
   renderSprintDetailView(sprintId);
 }
 
+function spUpdateSprintDate(sprintId, field, value) {
+  const s = _sprintList.find(sp => sp.id === sprintId);
+  if (!s) return;
+  s[field] = value;
+  spSave();
+  // Re-render just the deadline badges on visible cards without full re-render
+  renderSprintDetailView(sprintId);
+}
+
 function spFilterCards(cards, f) {
   if (f === 'all') return cards;
   if (f === 'prep')      return cards.filter(c => !c.prepChecked || !c.prepSupplemented || !c.prepDocs);
@@ -1721,8 +1730,21 @@ function renderSprintDetailView(sprintId) {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
       <button onclick="_spActiveSprintId=null;renderSprintListView()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Sprints</button>
       <div>
-        <div style="font-size:16px;font-weight:700;color:var(--text)">${esc(sprint.name)}</div>
-        ${sprint.goal ? `<div style="font-size:12px;color:var(--text2);margin-top:1px">${esc(sprint.goal)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:16px;font-weight:700;color:var(--text)">${esc(sprint.name)}</span>
+          <button onclick="openSprintModal(_sprintList.findIndex(s=>s.id==='${sprintId}'))" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:var(--font);color:var(--text2)">✏️ Sửa</button>
+        </div>
+        ${sprint.goal ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${esc(sprint.goal)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:11px;color:var(--text3);font-weight:600">Start:</span>
+            <input type="date" value="${sprint.startDate||''}" onchange="spUpdateSprintDate('${sprintId}','startDate',this.value)" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:11px;color:var(--text3);font-weight:600">End:</span>
+            <input type="date" value="${sprint.endDate||''}" onchange="spUpdateSprintDate('${sprintId}','endDate',this.value)" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
+          </div>
+        </div>
       </div>
       <div style="margin-left:auto">
         <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
