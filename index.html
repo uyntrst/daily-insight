@@ -547,6 +547,19 @@
   .sp-tab-add { color:var(--text3); }
   .sp-tab-add:hover { color:var(--blue); }
 
+  /* ── NOTE TAB LAYOUT (editor + card list) ── */
+  .sp-note-layout { display:grid; grid-template-columns:1fr 300px; gap:16px; align-items:start; }
+  @media (max-width:900px){ .sp-note-layout { grid-template-columns:1fr; } }
+  .sp-note-cards { position:sticky; top:16px; max-height:78vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+  .sp-nc-head { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); padding:0 2px 2px; display:flex; align-items:center; gap:6px; }
+  .sp-nc-head span { background:var(--surface2); border-radius:10px; padding:1px 7px; font-size:11px; }
+  .sp-nc-empty { font-size:12px; color:var(--text3); text-align:center; padding:24px 0; }
+  .sp-nc-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 11px; }
+  .sp-nc-top { display:flex; align-items:baseline; gap:7px; }
+  .sp-nc-id { font-size:11px; font-weight:700; color:var(--blue-text); background:var(--blue-bg); border:1px solid var(--blue-border); border-radius:6px; padding:1px 6px; white-space:nowrap; flex-shrink:0; }
+  .sp-nc-title { font-size:12.5px; font-weight:600; color:var(--text); line-height:1.4; word-break:break-word; }
+  .sp-nc-note { font-size:11.5px; color:var(--text2); line-height:1.5; margin-top:5px; white-space:pre-wrap; word-break:break-word; }
+
   /* ── RICH TEXT EDITOR (sprint note) ── */
   .rte-toolbar {
     display:flex; flex-wrap:wrap; align-items:center; gap:3px;
@@ -2027,7 +2040,8 @@ function renderSprintDetailView(sprintId) {
     </div>
 
     <div id="sp-tab-note" style="margin-top:14px;${_spTab==='note'?'':'display:none'}">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+     <div class="sp-note-layout">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-width:0">
         <div style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
           <span style="font-size:11px;color:var(--text3)">— 1 ghi chú / sprint, tự lưu</span>
@@ -2084,6 +2098,8 @@ function renderSprintDetailView(sprintId) {
           data-sprint="${sprintId}"
         >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
       </div>
+      <aside class="sp-note-cards">${renderNoteCardList(allCards)}</aside>
+     </div>
     </div>
     `;
   if (_spTab === 'note') spNoteInit();
@@ -2120,6 +2136,19 @@ function spPrepDeadlineBadge(c, sprint) {
   if (diff > 0) return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)">⏰ Còn ${diff} ngày chuẩn bị</span>`;
   if (diff === 0) return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">🔴 Hôm nay sprint start!</span>`;
   return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">⚠️ Trễ ${Math.abs(diff)} ngày</span>`;
+}
+
+// Compact card list shown beside the note editor: chỉ mã card, title, ghi chú (nếu có)
+function renderNoteCardList(cards) {
+  if (!cards.length) return `<div class="sp-nc-empty">Chưa có card nào</div>`;
+  return `<div class="sp-nc-head">Card trong sprint <span>${cards.length}</span></div>` + cards.map(c => `
+    <div class="sp-nc-item">
+      <div class="sp-nc-top">
+        <span class="sp-nc-id">${esc(c.cardId || '—')}</span>
+        <span class="sp-nc-title">${esc(c.title || '(chưa có tiêu đề)')}</span>
+      </div>
+      ${c.note ? `<div class="sp-nc-note">${esc(c.note)}</div>` : ''}
+    </div>`).join('');
 }
 
 function renderCardList(cards, sprintId) {
