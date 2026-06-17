@@ -384,6 +384,27 @@
   .inline-edit-ta:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
   .inline-edit-actions { display:flex; gap:6px; margin-top:6px; }
 
+  /* Checklist — view mode */
+  .cl-list { display:flex; flex-direction:column; gap:5px; }
+  .cl-item { display:flex; align-items:center; gap:9px; cursor:pointer; padding:3px 5px; border-radius:6px; transition:background .1s; user-select:none; }
+  .cl-item:hover { background:rgba(0,0,0,.05); }
+  .cl-box { width:17px; height:17px; border:2px solid var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--green-text); flex-shrink:0; transition:all .15s; }
+  .cl-item.done .cl-box { background:var(--green-bg); border-color:var(--green-border); }
+  .cl-text { font-size:13px; font-weight:600; line-height:1.5; transition:all .15s; }
+  .cl-item.done .cl-text { text-decoration:line-through; color:var(--text3); font-weight:400; }
+  .cl-progress { font-size:10px; color:var(--text3); margin-top:6px; font-weight:600; }
+
+  /* Checklist — edit mode */
+  .cl-edit-row { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .cl-edit-check { width:20px; height:20px; border:2px solid var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; font-weight:800; color:transparent; flex-shrink:0; transition:all .15s; }
+  .cl-edit-check.checked { background:var(--green-bg); border-color:var(--green-border); color:var(--green-text); }
+  .cl-edit-input { flex:1; padding:6px 10px; border:1px solid var(--border); border-radius:7px; font-size:13px; font-family:var(--font); background:var(--surface); color:var(--text); outline:none; }
+  .cl-edit-input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgba(37,99,235,.1); }
+  .cl-edit-del { background:none; border:none; cursor:pointer; color:var(--text3); font-size:17px; padding:2px 5px; line-height:1; }
+  .cl-edit-del:hover { color:var(--red); }
+  .cl-add-row-btn { font-size:12px; font-weight:600; color:var(--blue-text); background:none; border:1px dashed var(--blue-border); border-radius:7px; padding:5px 12px; cursor:pointer; font-family:var(--font); margin:2px 0 8px; display:block; width:100%; text-align:center; transition:background .15s; }
+  .cl-add-row-btn:hover { background:var(--blue-bg); }
+
   /* Image gallery */
   .img-gallery { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; align-items:center; }
   .img-thumb-wrap { position:relative; flex-shrink:0; }
@@ -1594,12 +1615,17 @@ function openDrawer(idx) {
       </div>
     </div>` : '';
 
-  // Next action block
+  // Next action / checklist block
   const tagCls = { red:'tag-red', orange:'tag-orange', blue:'tag-blue', amber:'tag-amber', purple:'tag-purple', gray:'tag-gray' }[acColor] || 'tag-gray';
+  const clItems = t.checklist || [];
+  const doneCount = clItems.filter(c => c.done).length;
+  const naContent = clItems.length
+    ? `<div class="cl-list">${clItems.map((c,i) => `<div class="cl-item${c.done?' done':''}" onclick="checklistToggle(${idx},${i})"><span class="cl-box">${c.done?'✓':''}</span><span class="cl-text">${esc(c.text)}</span></div>`).join('')}</div><div class="cl-progress">${doneCount}/${clItems.length} hoàn thành</div>`
+    : `<span class="${t.nextAction ? '' : 'empty'}">${esc(t.nextAction || 'Chưa xác định — nhấn ✏️ để thêm')}</span>`;
   const naHtml = `
     <div class="drawer-action-block ${acColor}">
       <div class="dab-label">✅ Cần làm gì <button class="edit-btn" onclick="drawerEditField(${idx},'nextAction')" title="Chỉnh sửa">✏️</button></div>
-      <div class="dab-content${t.nextAction ? '' : ' empty'}" id="field-nextAction">${esc(t.nextAction || 'Chưa xác định — nhấn ✏️ để thêm')}</div>
+      <div id="field-nextAction">${naContent}</div>
     </div>`;
 
   // Description & note — only show when has content; images only when exist
@@ -1677,7 +1703,21 @@ function drawerEditField(idx, field) {
   if (!t) return;
   const el = document.getElementById('field-' + field);
   if (!el) return;
-  el.style.display = '';  // reveal if hidden
+  el.style.display = '';
+
+  if (field === 'nextAction') {
+    const items = t.checklist || (t.nextAction ? [{ text: t.nextAction, done: false }] : []);
+    el.innerHTML = renderClEditRows(idx, items) +
+      `<button class="cl-add-row-btn" onclick="clAddEditRow(${idx})">＋ Thêm việc</button>
+       <div class="inline-edit-actions">
+         <button class="btn btn-primary" style="padding:5px 14px;font-size:12px" onclick="clSave(${idx})">💾 Lưu</button>
+         <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openDrawer(${idx})">Huỷ</button>
+       </div>`;
+    const first = el.querySelector('.cl-edit-input');
+    if (first) first.focus();
+    return;
+  }
+
   const cur = t[field] || '';
   el.innerHTML = `
     <textarea class="inline-edit-ta">${cur.replace(/</g,'&lt;')}</textarea>
@@ -1705,6 +1745,82 @@ function drawerEditField(idx, field) {
       }
     });
   }
+}
+
+function renderClEditRows(idx, items) {
+  return items.map((c, i) =>
+    `<div class="cl-edit-row" id="cl-edit-row-${idx}-${i}">
+       <button class="cl-edit-check${c.done ? ' checked' : ''}" onclick="clToggleEditRow(${idx},${i})" title="Toggle done">${c.done ? '✓' : ''}</button>
+       <input class="cl-edit-input" value="${c.text.replace(/"/g,'&quot;')}" placeholder="Việc cần làm…" />
+       <button class="cl-edit-del" onclick="clDelEditRow(${idx},${i})" title="Xoá">×</button>
+     </div>`
+  ).join('');
+}
+
+function clToggleEditRow(idx, i) {
+  const btn = document.querySelector(`#cl-edit-row-${idx}-${i} .cl-edit-check`);
+  if (!btn) return;
+  btn.classList.toggle('checked');
+  btn.textContent = btn.classList.contains('checked') ? '✓' : '';
+}
+
+function clDelEditRow(idx, i) {
+  const row = document.getElementById(`cl-edit-row-${idx}-${i}`);
+  if (row) row.remove();
+}
+
+function clAddEditRow(idx) {
+  const el = document.getElementById('field-nextAction');
+  if (!el) return;
+  const addBtn = el.querySelector('.cl-add-row-btn');
+  const existing = el.querySelectorAll('.cl-edit-row');
+  const newIdx = existing.length;
+  const div = document.createElement('div');
+  div.className = 'cl-edit-row';
+  div.id = `cl-edit-row-${idx}-${newIdx}`;
+  div.innerHTML = `<button class="cl-edit-check" onclick="clToggleEditRow(${idx},${newIdx})" title="Toggle done"></button>
+    <input class="cl-edit-input" value="" placeholder="Việc cần làm…" />
+    <button class="cl-edit-del" onclick="clDelEditRow(${idx},${newIdx})" title="Xoá">×</button>`;
+  el.insertBefore(div, addBtn);
+  div.querySelector('.cl-edit-input').focus();
+}
+
+function clSave(idx) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  const el = document.getElementById('field-nextAction');
+  if (!el) return;
+  const rows = el.querySelectorAll('.cl-edit-row');
+  const items = [];
+  rows.forEach(row => {
+    const text = row.querySelector('.cl-edit-input')?.value.trim();
+    if (!text) return;
+    const done = row.querySelector('.cl-edit-check')?.classList.contains('checked') || false;
+    items.push({ text, done });
+  });
+  t.checklist = items;
+  if (items.length === 0) { t.nextAction = ''; }
+  saveTasksToStorage();
+  showToast('✏️ Đã lưu checklist', 'success', 1500);
+  openDrawer(idx);
+}
+
+function checklistToggle(idx, i) {
+  const t = _taskStore[idx];
+  if (!t?.checklist?.[i]) return;
+  t.checklist[i].done = !t.checklist[i].done;
+  saveTasksToStorage();
+  // Re-render just the checklist section without closing drawer
+  const el = document.getElementById('field-nextAction');
+  if (!el) return;
+  const clItems = t.checklist;
+  const doneCount = clItems.filter(c => c.done).length;
+  el.innerHTML = `<div class="cl-list">${clItems.map((c, j) =>
+    `<div class="cl-item${c.done ? ' done' : ''}" onclick="checklistToggle(${idx},${j})">
+       <span class="cl-box">${c.done ? '✓' : ''}</span>
+       <span class="cl-text">${esc(c.text)}</span>
+     </div>`).join('')}</div>
+   <div class="cl-progress">${doneCount}/${clItems.length} hoàn thành</div>`;
 }
 
 function drawerSaveField(idx, field) {
