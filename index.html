@@ -529,6 +529,63 @@
   .note-panel-content { font-size:13px; color:var(--text); line-height:1.7; white-space:pre-wrap; }
   .note-panel-actions { display:flex; gap:8px; margin-top:10px; }
 
+  /* ── RICH TEXT EDITOR (sprint note) ── */
+  .rte-toolbar {
+    display:flex; flex-wrap:wrap; align-items:center; gap:3px;
+    padding:6px 8px; border-bottom:1px solid var(--border); background:var(--surface2);
+  }
+  .rte-group { display:flex; align-items:center; gap:2px; }
+  .rte-sep { width:1px; align-self:stretch; background:var(--border); margin:2px 4px; }
+  .rte-btn {
+    min-width:26px; height:26px; padding:0 6px; display:inline-flex; align-items:center; justify-content:center;
+    background:none; border:1px solid transparent; border-radius:6px; cursor:pointer;
+    font-family:var(--font); font-size:13px; color:var(--text2); line-height:1;
+    transition:background .12s, border-color .12s, color .12s;
+  }
+  .rte-btn:hover { background:var(--hover); color:var(--text); }
+  .rte-btn.active { background:var(--blue-bg); color:var(--blue-text); border-color:var(--blue-border); }
+  .rte-btn:disabled { opacity:.4; cursor:default; }
+  .rte-select {
+    height:26px; border:1px solid var(--border); border-radius:6px; background:var(--surface);
+    color:var(--text2); font-family:var(--font); font-size:12px; padding:0 6px; cursor:pointer; outline:none;
+  }
+  .rte-color-wrap { position:relative; width:26px; height:26px; }
+  .rte-color-wrap input[type=color] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:none; padding:0; }
+  .rte-color-wrap .rte-btn { width:100%; height:100%; pointer-events:none; }
+  /* editor content typography */
+  #sp-note-editor h1 { font-size:18px; font-weight:700; margin:10px 0 6px; line-height:1.3; }
+  #sp-note-editor h2 { font-size:15px; font-weight:700; margin:9px 0 5px; line-height:1.3; }
+  #sp-note-editor h3 { font-size:13px; font-weight:700; margin:8px 0 4px; text-transform:uppercase; letter-spacing:.04em; color:var(--text2); }
+  #sp-note-editor p { margin:5px 0; }
+  #sp-note-editor ul, #sp-note-editor ol { margin:5px 0; padding-left:22px; }
+  #sp-note-editor li { margin:2px 0; }
+  #sp-note-editor a { color:var(--blue); text-decoration:underline; }
+  #sp-note-editor blockquote {
+    margin:8px 0; padding:6px 12px; border-left:3px solid var(--blue-border);
+    background:var(--blue-bg); color:var(--text2); border-radius:0 6px 6px 0;
+  }
+  #sp-note-editor pre {
+    margin:8px 0; padding:10px 12px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+    white-space:pre-wrap; overflow-x:auto;
+  }
+  #sp-note-editor code {
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 5px;
+  }
+  #sp-note-editor hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
+  #sp-note-editor img { max-width:100%; border-radius:6px; margin:4px 0; }
+  /* checklist */
+  #sp-note-editor ul.rte-checklist { list-style:none; padding-left:4px; }
+  #sp-note-editor ul.rte-checklist li {
+    position:relative; padding-left:26px; cursor:pointer; user-select:none;
+  }
+  #sp-note-editor ul.rte-checklist li::before {
+    content:"☐"; position:absolute; left:2px; top:0; font-size:15px; color:var(--text3); line-height:1.6;
+  }
+  #sp-note-editor ul.rte-checklist li.checked::before { content:"☑"; color:var(--green-text,#16a34a); }
+  #sp-note-editor ul.rte-checklist li.checked { color:var(--text3); text-decoration:line-through; }
+
   /* ── WORK LOG ── */
   .worklog-section { border-top:1px solid var(--border); padding-top:14px; display:flex; flex-direction:column; gap:10px; }
   .worklog-header { display:flex; align-items:center; justify-content:space-between; }
@@ -1755,14 +1812,103 @@ function spToggleNote(sprintId) {
   }
 }
 
-function spNoteExec(cmd) {
-  const ed = document.getElementById('sp-note-editor');
+let _spNoteRange = null;
+function spNoteEditor() { return document.getElementById('sp-note-editor'); }
+
+// Remember the current selection (color inputs steal focus before firing)
+function spNoteRemember() {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount && spNoteEditor()?.contains(sel.anchorNode)) {
+    _spNoteRange = sel.getRangeAt(0).cloneRange();
+  }
+}
+function spNoteRestore() {
+  if (!_spNoteRange) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(_spNoteRange);
+}
+
+function spNoteExec(cmd, value) {
+  const ed = spNoteEditor();
   if (!ed) return;
-  const ph = ed.querySelector('[data-placeholder]');
-  if (ph) ph.remove();
+  const ph = ed.querySelector('[data-placeholder]'); if (ph) ph.remove();
   ed.focus();
-  document.execCommand(cmd, false, null);
+  if (value !== undefined) spNoteRestore();
+
+  if (cmd === 'foreColor' || cmd === 'hiliteColor') {
+    spNoteRestore();
+    if (cmd === 'hiliteColor' && !document.execCommand('hiliteColor', false, value)) {
+      document.execCommand('backColor', false, value);
+    } else {
+      document.execCommand(cmd, false, value);
+    }
+  } else if (cmd === 'formatInline') {
+    // wrap selection in an inline tag (e.g. CODE)
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && !sel.isCollapsed) {
+      const txt = sel.toString();
+      document.execCommand('insertHTML', false, `<${value.toLowerCase()}>${esc(txt)}</${value.toLowerCase()}>`);
+    }
+  } else {
+    document.execCommand(cmd, false, value ?? null);
+  }
+  spNoteUpdateToolbar();
   spNoteSave(ed);
+}
+
+function spNoteFormatBlock(tag) {
+  if (!tag) return;
+  const ed = spNoteEditor(); if (!ed) return;
+  const ph = ed.querySelector('[data-placeholder]'); if (ph) ph.remove();
+  ed.focus();
+  document.execCommand('formatBlock', false, tag);
+  spNoteUpdateToolbar();
+  spNoteSave(ed);
+}
+
+function spNoteChecklist() {
+  const ed = spNoteEditor(); if (!ed) return;
+  const ph = ed.querySelector('[data-placeholder]'); if (ph) ph.remove();
+  ed.focus();
+  // Build a checklist from the current/selected lines
+  const sel = window.getSelection();
+  const text = sel && !sel.isCollapsed ? sel.toString() : '';
+  const lines = text ? text.split('\n').filter(l => l.trim()) : ['Việc cần làm'];
+  const items = lines.map(l => `<li>${esc(l)}</li>`).join('');
+  document.execCommand('insertHTML', false, `<ul class="rte-checklist">${items}</ul><p><br></p>`);
+  spNoteSave(ed);
+}
+
+function spNoteLink() {
+  const ed = spNoteEditor(); if (!ed) return;
+  spNoteRemember();
+  const url = prompt('Nhập URL liên kết:', 'https://');
+  if (!url) return;
+  ed.focus();
+  spNoteRestore();
+  const sel = window.getSelection();
+  if (sel && sel.isCollapsed) {
+    document.execCommand('insertHTML', false, `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`);
+  } else {
+    document.execCommand('createLink', false, url);
+    // ensure links open in new tab
+    ed.querySelectorAll('a[href]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+  }
+  spNoteSave(ed);
+}
+
+const _RTE_STATE_CMDS = ['bold','italic','underline','strikeThrough','insertUnorderedList','insertOrderedList'];
+function spNoteUpdateToolbar() {
+  const bar = document.getElementById('sp-note-toolbar');
+  if (!bar) return;
+  _RTE_STATE_CMDS.forEach(cmd => {
+    const b = bar.querySelector(`[data-cmd="${cmd}"]`);
+    if (!b) return;
+    let on = false;
+    try { on = document.queryCommandState(cmd); } catch {}
+    b.classList.toggle('active', on);
+  });
 }
 
 function spNoteInit() {
@@ -1771,6 +1917,17 @@ function spNoteInit() {
   ed._spNoteInited = true;
   ed.addEventListener('focus', () => { const ph = ed.querySelector('[data-placeholder]'); if (ph) ph.remove(); });
   ed.addEventListener('input', () => spNoteSave(ed));
+  ed.addEventListener('keyup', spNoteUpdateToolbar);
+  ed.addEventListener('mouseup', () => { spNoteRemember(); spNoteUpdateToolbar(); });
+  ed.addEventListener('keydown', () => spNoteRemember());
+  // Toggle checklist items on click
+  ed.addEventListener('click', e => {
+    const li = e.target.closest('ul.rte-checklist > li');
+    if (li && e.offsetX < 24) {   // click on the checkbox area
+      li.classList.toggle('checked');
+      spNoteSave(ed);
+    }
+  });
   ed.addEventListener('paste', e => {
     const items = e.clipboardData?.items || [];
     for (const item of items) {
@@ -1784,6 +1941,7 @@ function spNoteInit() {
       }
     }
   });
+  spNoteUpdateToolbar();
 }
 
 let _spNoteSaveTimer = null;
@@ -1860,18 +2018,58 @@ function renderSprintDetailView(sprintId) {
       </div>
       <div id="sp-note-col" style="display:none;position:sticky;top:16px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
             <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
-            <div style="display:flex;gap:4px">
-              <button onclick="spNoteExec('bold')" title="Bold" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);color:var(--text2)">B</button>
-              <button onclick="spNoteExec('italic')" title="Italic" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2);font-style:italic">I</button>
-              <button onclick="spNoteExec('insertUnorderedList')" title="Bullet list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">•≡</button>
-              <button onclick="spNoteExec('insertOrderedList')" title="Numbered list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">1≡</button>
-              <button onclick="spNoteExec('insertHorizontalRule')" title="Divider" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">—</button>
+          </div>
+          <div class="rte-toolbar" id="sp-note-toolbar">
+            <div class="rte-group">
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('undo')" title="Hoàn tác (Ctrl+Z)">↶</button>
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('redo')" title="Làm lại (Ctrl+Y)">↷</button>
+            </div>
+            <div class="rte-sep"></div>
+            <select class="rte-select" title="Định dạng đoạn" onmousedown="event.stopPropagation()" onchange="spNoteFormatBlock(this.value);this.selectedIndex=0">
+              <option value="">Đoạn ▾</option>
+              <option value="P">Văn bản thường</option>
+              <option value="H1">Tiêu đề 1</option>
+              <option value="H2">Tiêu đề 2</option>
+              <option value="H3">Tiêu đề 3</option>
+              <option value="BLOCKQUOTE">Trích dẫn</option>
+              <option value="PRE">Khối code</option>
+            </select>
+            <div class="rte-sep"></div>
+            <div class="rte-group">
+              <button class="rte-btn" data-cmd="bold" onmousedown="event.preventDefault()" onclick="spNoteExec('bold')" title="Đậm (Ctrl+B)" style="font-weight:700">B</button>
+              <button class="rte-btn" data-cmd="italic" onmousedown="event.preventDefault()" onclick="spNoteExec('italic')" title="Nghiêng (Ctrl+I)" style="font-style:italic">I</button>
+              <button class="rte-btn" data-cmd="underline" onmousedown="event.preventDefault()" onclick="spNoteExec('underline')" title="Gạch chân (Ctrl+U)" style="text-decoration:underline">U</button>
+              <button class="rte-btn" data-cmd="strikeThrough" onmousedown="event.preventDefault()" onclick="spNoteExec('strikeThrough')" title="Gạch ngang" style="text-decoration:line-through">S</button>
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('formatInline','CODE')" title="Code inline" style="font-family:ui-monospace,Menlo,monospace">&lt;&gt;</button>
+            </div>
+            <div class="rte-sep"></div>
+            <div class="rte-group">
+              <div class="rte-color-wrap" title="Màu chữ">
+                <button class="rte-btn" style="text-decoration:underline;text-decoration-color:#ef4444;text-decoration-thickness:2px">A</button>
+                <input type="color" value="#1f2937" onmousedown="spNoteRemember()" oninput="spNoteExec('foreColor',this.value)">
+              </div>
+              <div class="rte-color-wrap" title="Tô nền (highlight)">
+                <button class="rte-btn" style="background:#fde68a;color:#92400e;border-radius:6px">H</button>
+                <input type="color" value="#fde68a" onmousedown="spNoteRemember()" oninput="spNoteExec('hiliteColor',this.value)">
+              </div>
+            </div>
+            <div class="rte-sep"></div>
+            <div class="rte-group">
+              <button class="rte-btn" data-cmd="insertUnorderedList" onmousedown="event.preventDefault()" onclick="spNoteExec('insertUnorderedList')" title="Danh sách dấu chấm">•≡</button>
+              <button class="rte-btn" data-cmd="insertOrderedList" onmousedown="event.preventDefault()" onclick="spNoteExec('insertOrderedList')" title="Danh sách đánh số">1≡</button>
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteChecklist()" title="Danh sách công việc">☑</button>
+            </div>
+            <div class="rte-sep"></div>
+            <div class="rte-group">
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteLink()" title="Chèn liên kết">🔗</button>
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('insertHorizontalRule')" title="Đường kẻ ngang">—</button>
+              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('removeFormat')" title="Xoá định dạng">⌫ᶠ</button>
             </div>
           </div>
           <div id="sp-note-editor" contenteditable="true" spellcheck="false"
-            style="min-height:240px;max-height:75vh;overflow-y:auto;padding:14px 16px;font-size:13px;color:var(--text);line-height:1.7;outline:none;font-family:var(--font)"
+            style="min-height:240px;max-height:70vh;overflow-y:auto;padding:14px 16px;font-size:13px;color:var(--text);line-height:1.7;outline:none;font-family:var(--font)"
             data-sprint="${sprintId}"
           >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
         </div>
