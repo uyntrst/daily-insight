@@ -1740,14 +1740,14 @@ function renderCardList(cards, sprintId) {
     const prodCheckBadge  = c.prodCheck ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--orange-bg);color:var(--orange-text);border:1px solid var(--orange-border)">📦 Prod</span>` : '';
 
     return `<div class="sp-card" onclick="openCardModal('${sprintId}',${globalIdx})">
-      <div class="sp-card-left">
+      <div class="sp-card-left" onclick="openCardModal('${sprintId}',${globalIdx})">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
           <a class="sp-card-id" href="${JIRA_BASE}${esc(c.cardId)}" target="_blank" onclick="event.stopPropagation()">${esc(c.cardId)}</a>
         </div>
         <div class="sp-card-title">${esc(c.title)}</div>
-        ${notePreview}
+        ${c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : `<div class="sp-card-note" style="color:var(--text3);opacity:.5;font-style:italic">Ghi chú nhanh...</div>`}
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
+      <div style="display:flex;align-items:flex-start;gap:6px;flex-shrink:0;flex-wrap:wrap;max-width:320px" onclick="openCardModal('${sprintId}',${globalIdx})">
         ${prepCheckBtn}${prepSuppBtn}${prepDocsBtn}
         ${devBadge}
         ${prodCheckBadge}
