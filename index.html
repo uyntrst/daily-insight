@@ -384,6 +384,24 @@
   .inline-edit-ta:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
   .inline-edit-actions { display:flex; gap:6px; margin-top:6px; }
 
+  /* Image gallery */
+  .img-gallery { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; align-items:center; }
+  .img-thumb-wrap { position:relative; flex-shrink:0; }
+  .img-thumb { width:72px; height:72px; object-fit:cover; border-radius:8px; cursor:pointer; border:1.5px solid var(--border); transition:all .15s; display:block; }
+  .img-thumb:hover { border-color:var(--blue); transform:scale(1.05); }
+  .img-del-btn { position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:var(--red); color:#fff; border:none; cursor:pointer; font-size:13px; line-height:18px; text-align:center; opacity:0; transition:opacity .15s; padding:0; }
+  .img-thumb-wrap:hover .img-del-btn { opacity:1; }
+  .img-add-btn { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; width:72px; height:72px; border:1.5px dashed var(--border); border-radius:8px; cursor:pointer; font-size:10px; font-weight:600; color:var(--text3); transition:all .15s; background:none; }
+  .img-add-btn:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-bg); }
+  .img-paste-hint { font-size:10px; color:var(--text3); margin-top:4px; font-style:italic; }
+
+  /* Lightbox */
+  .img-lightbox { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:500; display:none; align-items:center; justify-content:center; cursor:zoom-out; }
+  .img-lightbox.open { display:flex; }
+  .img-lightbox img { max-width:92vw; max-height:92vh; border-radius:10px; object-fit:contain; cursor:default; }
+  .img-lightbox-close { position:fixed; top:18px; right:22px; color:#fff; font-size:26px; cursor:pointer; line-height:1; background:none; border:none; opacity:.7; transition:opacity .15s; }
+  .img-lightbox-close:hover { opacity:1; }
+
   /* Waiting block */
   .drawer-wait {
     display:flex; align-items:flex-start; gap:10px;
@@ -800,6 +818,12 @@
 
   <!-- ── DRAWER BACKDROP ── -->
   <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+
+  <!-- ── IMAGE LIGHTBOX ── -->
+  <div class="img-lightbox" id="img-lightbox" onclick="imgLightboxClose()">
+    <button class="img-lightbox-close" onclick="imgLightboxClose()">✕</button>
+    <img id="img-lightbox-img" src="" alt="" onclick="event.stopPropagation()" />
+  </div>
 
   <!-- ── DETAIL DRAWER ── -->
   <div class="drawer" id="detail-drawer">
@@ -1530,7 +1554,7 @@ function openDrawer(idx) {
     </div>`;
 
   // Description & note — always shown so user can add even if empty
-  const descHtml = `<div class="drawer-row"><div class="dr-label">Mô tả <button class="edit-btn" onclick="drawerEditField(${idx},'description')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.description ? '' : ' empty'}" id="field-description">${esc(t.description || 'Chưa có — nhấn ✏️ để thêm')}</div></div>`;
+  const descHtml = `<div class="drawer-row"><div class="dr-label">Mô tả <button class="edit-btn" onclick="drawerEditField(${idx},'description')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.description ? '' : ' empty'}" id="field-description">${esc(t.description || 'Chưa có — nhấn ✏️ để thêm')}</div><div class="img-gallery" id="img-gallery-${idx}"></div></div>`;
   const noteHtml = `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn <button class="edit-btn" onclick="drawerEditField(${idx},'note')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.note ? '' : ' empty'}" id="field-note">${esc(t.note || 'Chưa có — nhấn ✏️ để thêm')}</div></div>`;
 
   // Write-back row (only if GSheets connected)
@@ -1582,6 +1606,7 @@ function openDrawer(idx) {
   document.getElementById('detail-drawer').classList.add('open');
   document.getElementById('drawer-backdrop').classList.add('open');
   renderWorkLogHistory(t);
+  renderImgGallery(idx, false);
 }
 
 function drawerUpdateStatus(idx, newStatus) {
@@ -1605,11 +1630,28 @@ function drawerEditField(idx, field) {
   const cur = t[field] || '';
   el.innerHTML = `
     <textarea class="inline-edit-ta">${cur.replace(/</g,'&lt;')}</textarea>
+    ${field === 'description' ? '<div class="img-paste-hint">💡 Ctrl+V để paste ảnh từ clipboard</div>' : ''}
     <div class="inline-edit-actions">
       <button class="btn btn-primary" style="padding:5px 14px;font-size:12px" onclick="drawerSaveField(${idx},'${field}')">💾 Lưu</button>
       <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openDrawer(${idx})">Huỷ</button>
     </div>`;
-  el.querySelector('textarea').focus();
+  const ta = el.querySelector('textarea');
+  ta.focus();
+  if (field === 'description') {
+    renderImgGallery(idx, true);
+    ta.addEventListener('paste', e => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const reader = new FileReader();
+          reader.onload = ev => imgAdd(idx, ev.target.result);
+          reader.readAsDataURL(item.getAsFile());
+        }
+      }
+    });
+  }
 }
 
 function drawerSaveField(idx, field) {
@@ -1623,13 +1665,86 @@ function drawerSaveField(idx, field) {
   openDrawer(idx);
 }
 
+// ── IMAGE GALLERY ────────────────────────────────────────────────────────────
+function renderImgGallery(idx, editMode) {
+  const t = _taskStore[idx];
+  const gallery = document.getElementById('img-gallery-' + idx);
+  if (!gallery) return;
+  const imgs = t?.images || [];
+  gallery.innerHTML = '';
+  imgs.forEach((src, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'img-thumb-wrap';
+    const img = document.createElement('img');
+    img.className = 'img-thumb';
+    img.src = src;
+    img.title = 'Click để xem lớn';
+    img.onclick = () => imgView(src);
+    wrap.appendChild(img);
+    if (editMode) {
+      const del = document.createElement('button');
+      del.className = 'img-del-btn';
+      del.textContent = '×';
+      del.title = 'Xóa ảnh';
+      del.onclick = e => { e.stopPropagation(); imgRemove(idx, i); };
+      wrap.appendChild(del);
+    }
+    gallery.appendChild(wrap);
+  });
+  const label = document.createElement('label');
+  label.className = 'img-add-btn';
+  label.title = 'Thêm ảnh';
+  label.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span style="font-size:10px">+ Ảnh</span>';
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.style.display = 'none';
+  input.onchange = e => imgUpload(idx, e.target.files);
+  label.appendChild(input);
+  gallery.appendChild(label);
+}
+
+function imgUpload(idx, files) {
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => imgAdd(idx, e.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+function imgAdd(idx, dataUrl) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  if (!t.images) t.images = [];
+  t.images.push(dataUrl);
+  saveTasksToStorage();
+  const editMode = !!document.querySelector('#field-description textarea');
+  renderImgGallery(idx, editMode);
+  showToast('🖼 Đã thêm ảnh', 'success', 1500);
+}
+
+function imgRemove(idx, i) {
+  const t = _taskStore[idx];
+  if (!t?.images) return;
+  t.images.splice(i, 1);
+  saveTasksToStorage();
+  renderImgGallery(idx, true);
+}
+
+function imgView(src) {
+  document.getElementById('img-lightbox-img').src = src;
+  document.getElementById('img-lightbox').classList.add('open');
+}
+
+function imgLightboxClose() {
+  document.getElementById('img-lightbox').classList.remove('open');
+}
+
 function closeDrawer() {
   document.getElementById('detail-drawer').classList.remove('open');
   document.getElementById('drawer-backdrop').classList.remove('open');
   document.getElementById('interrupt-form').style.display = 'none';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); closeGistPanel(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { imgLightboxClose(); closeDrawer(); closeGistPanel(); } });
 
 // ── INTERRUPT BRAIN DUMP ────────────────────────────────────────────────────
 function interruptKey(name) { return 'intr_' + name.slice(0,80); }
