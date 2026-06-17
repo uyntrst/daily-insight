@@ -529,6 +529,24 @@
   .note-panel-content { font-size:13px; color:var(--text); line-height:1.7; white-space:pre-wrap; }
   .note-panel-actions { display:flex; gap:8px; margin-top:10px; }
 
+  /* ── SPRINT TABS (cards / note) ── */
+  .sp-tab-strip { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-top:14px; }
+  .sp-tab {
+    display:inline-flex; align-items:center; gap:6px; background:none; border:none;
+    border-bottom:2px solid transparent; margin-bottom:-1px; padding:9px 14px;
+    font-family:var(--font); font-size:13px; font-weight:600; color:var(--text3);
+    cursor:pointer; transition:color .12s, border-color .12s;
+  }
+  .sp-tab:hover { color:var(--text); }
+  .sp-tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+  .sp-tab-count {
+    font-size:11px; font-weight:700; background:var(--surface2); color:var(--text3);
+    border-radius:10px; padding:1px 7px;
+  }
+  .sp-tab.active .sp-tab-count { background:var(--blue-bg); color:var(--blue-text); }
+  .sp-tab-add { color:var(--text3); }
+  .sp-tab-add:hover { color:var(--blue); }
+
   /* ── RICH TEXT EDITOR (sprint note) ── */
   .rte-toolbar {
     display:flex; flex-wrap:wrap; align-items:center; gap:3px;
@@ -1688,6 +1706,7 @@ let _sprintList  = [];
 let _sprintCards = [];
 let _spActiveSprintId = null;  // null = list view, string = detail view
 let _spCardFilter = 'all';
+let _spTab = 'cards';          // 'cards' | 'note' — active tab in sprint detail
 
 function spLoad() {
   try { _sprintList  = JSON.parse(localStorage.getItem('_sprintList')  || '[]'); } catch { _sprintList  = []; }
@@ -1763,6 +1782,7 @@ function renderSprintCards() {
 function spOpenDetail(sprintId) {
   _spActiveSprintId = sprintId;
   _spCardFilter = 'all';
+  _spTab = 'cards';
   renderSprintDetailView(sprintId);
 }
 
@@ -1784,33 +1804,17 @@ function spHasNote(sprint) {
   return tmp.textContent.trim().length > 0;
 }
 
-function spToggleNote(sprintId) {
-  const col = document.getElementById('sp-note-col');
-  const grid = document.getElementById('sp-main-grid');
-  const btn = document.getElementById('sp-note-toggle-btn');
-  if (!col) return;
-  const visible = col.style.display !== 'none';
-  if (visible) {
-    // Flush any pending debounced save so the note state is current
-    const ed = document.getElementById('sp-note-editor');
-    if (ed) {
-      clearTimeout(_spNoteSaveTimer);
-      const s = _sprintList.find(sp => sp.id === ed.dataset.sprint);
-      if (s) { s.noteHtml = ed.innerHTML; spSave(); }
-    }
-    col.style.display = 'none';
-    grid.style.gridTemplateColumns = '1fr';
-    // Re-render so the toggle button reflects whether a note now exists
-    renderSprintDetailView(sprintId);
-  } else {
-    col.style.display = 'block';
-    grid.style.gridTemplateColumns = 'repeat(12,1fr)';
-    document.getElementById('sp-card-col').style.gridColumn = 'span 9';
-    col.style.gridColumn = 'span 3';
-    if (btn) { btn.style.background = 'var(--blue-bg)'; btn.style.color = 'var(--blue-text)'; btn.style.borderColor = 'var(--blue-border)'; }
-    spNoteInit();
-  }
+// Flush any pending debounced note save immediately (call before re-render / tab switch)
+function spNoteFlush() {
+  const ed = document.getElementById('sp-note-editor');
+  if (!ed) return;
+  clearTimeout(_spNoteSaveTimer);
+  const s = _sprintList.find(sp => sp.id === ed.dataset.sprint);
+  if (s) { s.noteHtml = ed.innerHTML; spSave(); }
 }
+
+// Backwards-compat: any old caller now just opens the note tab
+function spToggleNote(sprintId) { _spActiveSprintId = sprintId; spSwitchTab('note'); }
 
 let _spNoteRange = null;
 function spNoteEditor() { return document.getElementById('sp-note-editor'); }
@@ -2002,81 +2006,100 @@ function renderSprintDetailView(sprintId) {
         </div>` : ''}
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        ${spHasNote(sprint)
-          ? `<button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--blue-text)">📝 Ghi chú</button>`
-          : `<button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text3)">＋ Ghi chú</button>`
-        }
         <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
       </div>
     </div>
-    <div id="sp-main-grid" style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start;margin-top:12px">
-      <div id="sp-card-col" style="min-width:0">
-        <div class="sp-filter-bar" style="margin-bottom:16px">
-          ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
-        </div>
-        <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>
+
+    <!-- Tab strip: Cards / Ghi chú -->
+    <div class="sp-tab-strip">
+      <button class="sp-tab${_spTab==='cards'?' active':''}" onclick="spSwitchTab('cards')">📋 Danh sách card <span class="sp-tab-count">${allCards.length}</span></button>
+      ${spHasNote(sprint)
+        ? `<button class="sp-tab${_spTab==='note'?' active':''}" onclick="spSwitchTab('note')">📝 Ghi chú</button>`
+        : `<button class="sp-tab sp-tab-add" onclick="spSwitchTab('note')">＋ Ghi chú</button>`
+      }
+    </div>
+
+    <div id="sp-tab-cards" style="margin-top:14px;${_spTab==='cards'?'':'display:none'}">
+      <div class="sp-filter-bar" style="margin-bottom:16px">
+        ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
       </div>
-      <div id="sp-note-col" style="display:none;position:sticky;top:16px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-          <div style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-            <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
-          </div>
-          <div class="rte-toolbar" id="sp-note-toolbar">
-            <div class="rte-group">
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('undo')" title="Hoàn tác (Ctrl+Z)">↶</button>
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('redo')" title="Làm lại (Ctrl+Y)">↷</button>
-            </div>
-            <div class="rte-sep"></div>
-            <select class="rte-select" title="Định dạng đoạn" onmousedown="event.stopPropagation()" onchange="spNoteFormatBlock(this.value);this.selectedIndex=0">
-              <option value="">Đoạn ▾</option>
-              <option value="P">Văn bản thường</option>
-              <option value="H1">Tiêu đề 1</option>
-              <option value="H2">Tiêu đề 2</option>
-              <option value="H3">Tiêu đề 3</option>
-              <option value="BLOCKQUOTE">Trích dẫn</option>
-              <option value="PRE">Khối code</option>
-            </select>
-            <div class="rte-sep"></div>
-            <div class="rte-group">
-              <button class="rte-btn" data-cmd="bold" onmousedown="event.preventDefault()" onclick="spNoteExec('bold')" title="Đậm (Ctrl+B)" style="font-weight:700">B</button>
-              <button class="rte-btn" data-cmd="italic" onmousedown="event.preventDefault()" onclick="spNoteExec('italic')" title="Nghiêng (Ctrl+I)" style="font-style:italic">I</button>
-              <button class="rte-btn" data-cmd="underline" onmousedown="event.preventDefault()" onclick="spNoteExec('underline')" title="Gạch chân (Ctrl+U)" style="text-decoration:underline">U</button>
-              <button class="rte-btn" data-cmd="strikeThrough" onmousedown="event.preventDefault()" onclick="spNoteExec('strikeThrough')" title="Gạch ngang" style="text-decoration:line-through">S</button>
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('formatInline','CODE')" title="Code inline" style="font-family:ui-monospace,Menlo,monospace">&lt;&gt;</button>
-            </div>
-            <div class="rte-sep"></div>
-            <div class="rte-group">
-              <div class="rte-color-wrap" title="Màu chữ">
-                <button class="rte-btn" style="text-decoration:underline;text-decoration-color:#ef4444;text-decoration-thickness:2px">A</button>
-                <input type="color" value="#1f2937" onmousedown="spNoteRemember()" oninput="spNoteExec('foreColor',this.value)">
-              </div>
-              <div class="rte-color-wrap" title="Tô nền (highlight)">
-                <button class="rte-btn" style="background:#fde68a;color:#92400e;border-radius:6px">H</button>
-                <input type="color" value="#fde68a" onmousedown="spNoteRemember()" oninput="spNoteExec('hiliteColor',this.value)">
-              </div>
-            </div>
-            <div class="rte-sep"></div>
-            <div class="rte-group">
-              <button class="rte-btn" data-cmd="insertUnorderedList" onmousedown="event.preventDefault()" onclick="spNoteExec('insertUnorderedList')" title="Danh sách dấu chấm">•≡</button>
-              <button class="rte-btn" data-cmd="insertOrderedList" onmousedown="event.preventDefault()" onclick="spNoteExec('insertOrderedList')" title="Danh sách đánh số">1≡</button>
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteChecklist()" title="Danh sách công việc">☑</button>
-            </div>
-            <div class="rte-sep"></div>
-            <div class="rte-group">
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteLink()" title="Chèn liên kết">🔗</button>
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('insertHorizontalRule')" title="Đường kẻ ngang">—</button>
-              <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('removeFormat')" title="Xoá định dạng">⌫ᶠ</button>
-            </div>
-          </div>
-          <div id="sp-note-editor" contenteditable="true" spellcheck="false"
-            style="min-height:240px;max-height:70vh;overflow-y:auto;padding:14px 16px;font-size:13px;color:var(--text);line-height:1.7;outline:none;font-family:var(--font)"
-            data-sprint="${sprintId}"
-          >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
+      <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>
+    </div>
+
+    <div id="sp-tab-note" style="margin-top:14px;${_spTab==='note'?'':'display:none'}">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <div style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
+          <span style="font-size:11px;color:var(--text3)">— 1 ghi chú / sprint, tự lưu</span>
         </div>
+        <div class="rte-toolbar" id="sp-note-toolbar">
+          <div class="rte-group">
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('undo')" title="Hoàn tác (Ctrl+Z)">↶</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('redo')" title="Làm lại (Ctrl+Y)">↷</button>
+          </div>
+          <div class="rte-sep"></div>
+          <select class="rte-select" title="Định dạng đoạn" onmousedown="event.stopPropagation()" onchange="spNoteFormatBlock(this.value);this.selectedIndex=0">
+            <option value="">Đoạn ▾</option>
+            <option value="P">Văn bản thường</option>
+            <option value="H1">Tiêu đề 1</option>
+            <option value="H2">Tiêu đề 2</option>
+            <option value="H3">Tiêu đề 3</option>
+            <option value="BLOCKQUOTE">Trích dẫn</option>
+            <option value="PRE">Khối code</option>
+          </select>
+          <div class="rte-sep"></div>
+          <div class="rte-group">
+            <button class="rte-btn" data-cmd="bold" onmousedown="event.preventDefault()" onclick="spNoteExec('bold')" title="Đậm (Ctrl+B)" style="font-weight:700">B</button>
+            <button class="rte-btn" data-cmd="italic" onmousedown="event.preventDefault()" onclick="spNoteExec('italic')" title="Nghiêng (Ctrl+I)" style="font-style:italic">I</button>
+            <button class="rte-btn" data-cmd="underline" onmousedown="event.preventDefault()" onclick="spNoteExec('underline')" title="Gạch chân (Ctrl+U)" style="text-decoration:underline">U</button>
+            <button class="rte-btn" data-cmd="strikeThrough" onmousedown="event.preventDefault()" onclick="spNoteExec('strikeThrough')" title="Gạch ngang" style="text-decoration:line-through">S</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('formatInline','CODE')" title="Code inline" style="font-family:ui-monospace,Menlo,monospace">&lt;&gt;</button>
+          </div>
+          <div class="rte-sep"></div>
+          <div class="rte-group">
+            <div class="rte-color-wrap" title="Màu chữ">
+              <button class="rte-btn" style="text-decoration:underline;text-decoration-color:#ef4444;text-decoration-thickness:2px">A</button>
+              <input type="color" value="#1f2937" onmousedown="spNoteRemember()" oninput="spNoteExec('foreColor',this.value)">
+            </div>
+            <div class="rte-color-wrap" title="Tô nền (highlight)">
+              <button class="rte-btn" style="background:#fde68a;color:#92400e;border-radius:6px">H</button>
+              <input type="color" value="#fde68a" onmousedown="spNoteRemember()" oninput="spNoteExec('hiliteColor',this.value)">
+            </div>
+          </div>
+          <div class="rte-sep"></div>
+          <div class="rte-group">
+            <button class="rte-btn" data-cmd="insertUnorderedList" onmousedown="event.preventDefault()" onclick="spNoteExec('insertUnorderedList')" title="Danh sách dấu chấm">•≡</button>
+            <button class="rte-btn" data-cmd="insertOrderedList" onmousedown="event.preventDefault()" onclick="spNoteExec('insertOrderedList')" title="Danh sách đánh số">1≡</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteChecklist()" title="Danh sách công việc">☑</button>
+          </div>
+          <div class="rte-sep"></div>
+          <div class="rte-group">
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteLink()" title="Chèn liên kết">🔗</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('insertHorizontalRule')" title="Đường kẻ ngang">—</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="spNoteExec('removeFormat')" title="Xoá định dạng">⌫ᶠ</button>
+          </div>
+        </div>
+        <div id="sp-note-editor" contenteditable="true" spellcheck="false"
+          style="min-height:360px;max-height:72vh;overflow-y:auto;padding:18px 22px;font-size:13px;color:var(--text);line-height:1.7;outline:none;font-family:var(--font)"
+          data-sprint="${sprintId}"
+        >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
       </div>
     </div>
     `;
-  spNoteInit();
+  if (_spTab === 'note') spNoteInit();
+}
+
+function spSwitchTab(tab) {
+  // Persist any in-progress note edits before swapping the DOM out
+  if (_spTab === 'note') spNoteFlush();
+  _spTab = tab;
+  const sprintId = _spActiveSprintId;
+  renderSprintDetailView(sprintId);
+  if (tab === 'note') {
+    spNoteInit();
+    const ed = document.getElementById('sp-note-editor');
+    if (ed) { ed.focus(); const ph = ed.querySelector('[data-placeholder]'); if (ph) { const r=document.createRange(); r.selectNodeContents(ph); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); } }
+  }
 }
 
 const _spExpandedAC = new Set();
