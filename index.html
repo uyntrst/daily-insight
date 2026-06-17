@@ -1914,7 +1914,7 @@ function renderCardList(cards, sprintId) {
             <span onclick="spOpenDrawer(${globalIdx})" style="font-size:13px;font-weight:600;color:var(--text);cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--border)">${esc(c.title)}</span>
             ${deadlineBadge}
           </div>
-          <div id="sp-note-view-${globalIdx}" onclick="spEditNote(${globalIdx})" style="font-size:12px;color:${c.note?'var(--text2)':'var(--text3)'};cursor:text;padding:4px 6px;border-radius:6px;border:1px dashed transparent;min-height:24px;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'">${c.note ? esc(c.note) : '<span style="opacity:.5;font-style:italic">Ghi chú nhanh — click để thêm</span>'}</div>
+          <div id="sp-note-view-${globalIdx}" onclick="spEditNote(${globalIdx})" style="font-size:12px;color:${c.note?'var(--text2)':'var(--text3)'};cursor:text;padding:4px 6px;border-radius:6px;border:1px dashed transparent;min-height:24px;white-space:pre-wrap;word-break:break-word;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'">${c.note ? esc(c.note) : '<span style="opacity:.5;font-style:italic">Ghi chú nhanh — click để thêm</span>'}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
@@ -1923,7 +1923,7 @@ function renderCardList(cards, sprintId) {
             <button onclick="spCardToggle(${globalIdx},'prepDocs')" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${spPrepStyle(c.prepDocs)}">✓ Docs/AC</button>
           </div>
           <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-            ${devSelect}${prodBtn}${acBtn}${moveSelect}${delBtn}
+            ${devSelect}${prodBtn}${acBtn}
           </div>
         </div>
       </div>
