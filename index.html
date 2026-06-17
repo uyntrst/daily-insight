@@ -1622,19 +1622,22 @@ function openDrawer(idx) {
   const naContent = clItems.length
     ? `<div class="cl-list">${clItems.map((c,i) => `<div class="cl-item${c.done?' done':''}" onclick="checklistToggle(${idx},${i})"><span class="cl-box">${c.done?'✓':''}</span><span class="cl-text">${esc(c.text)}</span></div>`).join('')}</div><div class="cl-progress">${doneCount}/${clItems.length} hoàn thành</div>`
     : (t.nextAction ? `<span>${esc(t.nextAction)}</span>` : '');
+  const isDone = t.group === 'done';
+  const editBtn = (field) => isDone ? '' : `<button class="edit-btn" onclick="drawerEditField(${idx},'${field}')" title="Chỉnh sửa">✏️</button>`;
+
   const naHtml = `
     <div class="drawer-action-block ${acColor}">
-      <div class="dab-label">✅ Cần làm gì <button class="edit-btn" onclick="drawerEditField(${idx},'nextAction')" title="Chỉnh sửa">✏️</button></div>
+      <div class="dab-label">✅ Cần làm gì ${editBtn('nextAction')}</div>
       <div id="field-nextAction">${naContent}</div>
     </div>`;
 
   // Description & note — only show when has content; images only when exist
   const hasImages = (t.images||[]).length > 0;
-  const descHtml = (t.description || hasImages) ? `<div class="drawer-row"><div class="dr-label">Mô tả <button class="edit-btn" onclick="drawerEditField(${idx},'description')" title="Chỉnh sửa">✏️</button></div>${t.description ? `<div class="dr-value" id="field-description">${esc(t.description)}</div>` : `<div id="field-description"></div>`}<div class="img-gallery" id="img-gallery-${idx}"></div></div>` : `<div id="field-description" style="display:none"></div><div class="img-gallery" id="img-gallery-${idx}" style="display:none"></div>`;
-  const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn <button class="edit-btn" onclick="drawerEditField(${idx},'note')" title="Chỉnh sửa">✏️</button></div><div class="dr-value" id="field-note">${esc(t.note)}</div></div>` : `<div id="field-note" style="display:none"></div>`;
+  const descHtml = (t.description || hasImages) ? `<div class="drawer-row"><div class="dr-label">Mô tả ${editBtn('description')}</div>${t.description ? `<div class="dr-value" id="field-description">${esc(t.description)}</div>` : `<div id="field-description"></div>`}<div class="img-gallery" id="img-gallery-${idx}"></div></div>` : `<div id="field-description" style="display:none"></div><div class="img-gallery" id="img-gallery-${idx}" style="display:none"></div>`;
+  const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn ${editBtn('note')}</div><div class="dr-value" id="field-note">${esc(t.note)}</div></div>` : `<div id="field-note" style="display:none"></div>`;
 
-  // Write-back row (only if GSheets connected)
-  const updateHtml = true ? `
+  // Write-back row — hidden for done tasks
+  const updateHtml = isDone ? '' : `
     <div class="drawer-update-row">
       <select class="status-select" id="drawer-status-select" onchange="drawerUpdateStatus(${idx}, this.value)">
         <option value="">— Cập nhật trạng thái —</option>
@@ -1646,7 +1649,7 @@ function openDrawer(idx) {
         <option value="Done"${t.status==='Done'?' selected':''}>🟢 Done</option>
       </select>
       <button class="btn btn-ghost" style="white-space:nowrap" onclick="markDone(${idx});closeDrawer()">✅ Mark Done</button>
-    </div>` : '';
+    </div>`;
 
   // ── Resume banner if task was interrupted ──
   const interrupt = interruptGet(t.task);
@@ -1676,6 +1679,8 @@ function openDrawer(idx) {
   const footer = document.getElementById('drawer-footer');
   footer.style.display = 'flex';
   footer.dataset.idx = idx;
+  document.getElementById('dca-interrupt-btn').style.display = isDone ? 'none' : '';
+  document.querySelector('.dca-btn.done').style.display = isDone ? 'none' : '';
   // Reset interrupt form
   document.getElementById('interrupt-form').style.display = 'none';
 
