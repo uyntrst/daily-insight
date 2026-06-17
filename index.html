@@ -1382,12 +1382,12 @@ function renderDonePage() {
   }
   list.innerHTML = done.map(t => {
     const idx = _taskStore.indexOf(t);
-    return `<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px">
+    return `<div onclick="openDrawer(${idx})" style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;cursor:pointer" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background='var(--surface)'">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:var(--text2);text-decoration:line-through;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.task)}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:3px">${esc(t.project||'')}${t.nextAction ? ' · ' + esc(t.nextAction) : ''}</div>
       </div>
-      <button onclick="undoneTask(${idx})" style="flex-shrink:0;padding:7px 16px;font-size:12px;font-weight:600;border:1px solid var(--orange);border-radius:8px;background:none;color:var(--orange);cursor:pointer;font-family:var(--font);white-space:nowrap">↩ Undone</button>
+      <button onclick="event.stopPropagation();undoneTask(${idx})" style="flex-shrink:0;padding:7px 16px;font-size:12px;font-weight:600;border:1px solid var(--orange);border-radius:8px;background:none;color:var(--orange);cursor:pointer;font-family:var(--font);white-space:nowrap">↩ Undone</button>
     </div>`;
   }).join('');
 }
