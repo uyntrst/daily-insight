@@ -1553,9 +1553,10 @@ function openDrawer(idx) {
       <div class="dab-content${t.nextAction ? '' : ' empty'}" id="field-nextAction">${esc(t.nextAction || 'Chưa xác định — nhấn ✏️ để thêm')}</div>
     </div>`;
 
-  // Description & note — always shown so user can add even if empty
-  const descHtml = `<div class="drawer-row"><div class="dr-label">Mô tả <button class="edit-btn" onclick="drawerEditField(${idx},'description')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.description ? '' : ' empty'}" id="field-description">${esc(t.description || 'Chưa có — nhấn ✏️ để thêm')}</div><div class="img-gallery" id="img-gallery-${idx}"></div></div>`;
-  const noteHtml = `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn <button class="edit-btn" onclick="drawerEditField(${idx},'note')" title="Chỉnh sửa">✏️</button></div><div class="dr-value${t.note ? '' : ' empty'}" id="field-note">${esc(t.note || 'Chưa có — nhấn ✏️ để thêm')}</div></div>`;
+  // Description & note — only show when has content; images only when exist
+  const hasImages = (t.images||[]).length > 0;
+  const descHtml = (t.description || hasImages) ? `<div class="drawer-row"><div class="dr-label">Mô tả <button class="edit-btn" onclick="drawerEditField(${idx},'description')" title="Chỉnh sửa">✏️</button></div>${t.description ? `<div class="dr-value" id="field-description">${esc(t.description)}</div>` : `<div id="field-description"></div>`}<div class="img-gallery" id="img-gallery-${idx}"></div></div>` : `<div id="field-description" style="display:none"></div><div class="img-gallery" id="img-gallery-${idx}" style="display:none"></div>`;
+  const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn <button class="edit-btn" onclick="drawerEditField(${idx},'note')" title="Chỉnh sửa">✏️</button></div><div class="dr-value" id="field-note">${esc(t.note)}</div></div>` : `<div id="field-note" style="display:none"></div>`;
 
   // Write-back row (only if GSheets connected)
   const updateHtml = true ? `
@@ -1627,6 +1628,7 @@ function drawerEditField(idx, field) {
   if (!t) return;
   const el = document.getElementById('field-' + field);
   if (!el) return;
+  el.style.display = '';  // reveal if hidden
   const cur = t[field] || '';
   el.innerHTML = `
     <textarea class="inline-edit-ta">${cur.replace(/</g,'&lt;')}</textarea>
@@ -1638,6 +1640,8 @@ function drawerEditField(idx, field) {
   const ta = el.querySelector('textarea');
   ta.focus();
   if (field === 'description') {
+    const gallery = document.getElementById('img-gallery-' + idx);
+    if (gallery) gallery.style.display = 'flex';
     renderImgGallery(idx, true);
     ta.addEventListener('paste', e => {
       const items = e.clipboardData?.items;
@@ -1691,15 +1695,20 @@ function renderImgGallery(idx, editMode) {
     }
     gallery.appendChild(wrap);
   });
-  const label = document.createElement('label');
-  label.className = 'img-add-btn';
-  label.title = 'Thêm ảnh';
-  label.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span style="font-size:10px">+ Ảnh</span>';
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.style.display = 'none';
-  input.onchange = e => imgUpload(idx, e.target.files);
-  label.appendChild(input);
-  gallery.appendChild(label);
+  // Only show "+ Ảnh" button in edit mode
+  if (editMode) {
+    const label = document.createElement('label');
+    label.className = 'img-add-btn';
+    label.title = 'Thêm ảnh';
+    label.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" y1="5" x2="22" y2="5"/><line x1="19" y1="2" x2="19" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span style="font-size:10px">+ Ảnh</span>';
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.style.display = 'none';
+    input.onchange = e => imgUpload(idx, e.target.files);
+    label.appendChild(input);
+    gallery.appendChild(label);
+  }
+  // Show gallery only if has content
+  gallery.style.display = (imgs.length > 0 || editMode) ? 'flex' : 'none';
 }
 
 function imgUpload(idx, files) {
