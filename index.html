@@ -757,6 +757,8 @@
   .sp-filter-btn { font-size:11px; font-weight:600; padding:4px 12px; border-radius:20px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; font-family:var(--font); transition:all .15s; }
   .sp-filter-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
   /* Sprint modal */
+  .sp-sprint-row { display:flex; align-items:center; gap:14px; padding:16px 20px; background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; cursor:pointer; transition:background .15s; }
+  .sp-sprint-row:hover { background:var(--hover); }
   .sp-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:600; }
   .sp-modal { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:min(600px,95vw); max-height:90vh; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:16px; z-index:601; padding:24px; box-sizing:border-box; }
   .sp-modal h3 { font-size:15px; font-weight:700; margin:0 0 18px; color:var(--text); }
@@ -944,25 +946,37 @@
     <main class="main-panel" id="main-panel"></main>
   </div>
 
-  <!-- ── SPRINT PAGE ── -->
-  <div id="sprint-page" style="display:none;padding:28px 32px;max-width:900px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <button onclick="toggleSprintPage()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Quay lại</button>
-      <h2 style="font-size:16px;font-weight:700;color:var(--text);margin:0">🏃 Card in Sprint</h2>
-      <span id="sprint-count" style="font-size:12px;color:var(--text3)"></span>
-      <div style="margin-left:auto">
-        <button onclick="openSprintCardModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
+  <!-- ── SPRINT PAGE (content rendered by JS) ── -->
+  <div id="sprint-page" style="display:none;padding:28px 32px;max-width:900px;margin:0 auto"></div>
+
+  <!-- Sprint meta modal (create/edit sprint) -->
+  <div class="sp-modal-overlay" id="sp-sprint-modal-overlay" onclick="closeSprintModal()"></div>
+  <div class="sp-modal" id="sp-sprint-modal">
+    <h3 id="sp-sprint-modal-title">＋ Thêm sprint</h3>
+    <input type="hidden" id="sp-sprint-edit-idx" value="">
+    <div class="sp-field">
+      <label class="sp-label">Tên sprint</label>
+      <input class="sp-input" id="sp-sprint-name" placeholder="VD: Sprint 23, Sprint tháng 7...">
+    </div>
+    <div class="sp-field">
+      <label class="sp-label">Sprint goal <span style="color:var(--text3);font-weight:400">(tuỳ chọn)</span></label>
+      <input class="sp-input" id="sp-sprint-goal" placeholder="Mục tiêu sprint này...">
+    </div>
+    <div class="sp-row2">
+      <div class="sp-field">
+        <label class="sp-label">Ngày bắt đầu</label>
+        <input class="sp-input" id="sp-sprint-start" type="date">
+      </div>
+      <div class="sp-field">
+        <label class="sp-label">Ngày kết thúc</label>
+        <input class="sp-input" id="sp-sprint-end" type="date">
       </div>
     </div>
-    <div class="sp-filter-bar" id="sprint-filter-bar">
-      <button class="sp-filter-btn active" data-filter="all" onclick="spSetFilter('all',this)">Tất cả</button>
-      <button class="sp-filter-btn" data-filter="todo" onclick="spSetFilter('todo',this)">To Do</button>
-      <button class="sp-filter-btn" data-filter="inprogress" onclick="spSetFilter('inprogress',this)">In Progress</button>
-      <button class="sp-filter-btn" data-filter="review" onclick="spSetFilter('review',this)">In Review / QA</button>
-      <button class="sp-filter-btn" data-filter="returned" onclick="spSetFilter('returned',this)">⚠️ Returned</button>
-      <button class="sp-filter-btn" data-filter="done" onclick="spSetFilter('done',this)">Done</button>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSprintModal()">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveSprintMeta()">💾 Lưu</button>
+      <button id="sp-sprint-delete-btn" class="btn" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;display:none" onclick="deleteSprintMeta()">🗑 Xoá sprint</button>
     </div>
-    <div id="sprint-list"></div>
   </div>
 
   <!-- Sprint card modal -->
@@ -970,6 +984,7 @@
   <div class="sp-modal" id="sp-modal">
     <h3 id="sp-modal-title">＋ Thêm card</h3>
     <input type="hidden" id="sp-edit-idx" value="">
+    <input type="hidden" id="sp-edit-sprint" value="">
     <div class="sp-row2">
       <div class="sp-field">
         <label class="sp-label">Card ID <span style="color:var(--text3);font-weight:400">(VD: CSP-6204)</span></label>
@@ -1545,14 +1560,19 @@ function undoneTask(idx) {
 const JIRA_BASE = 'https://atlassiansuite.mservice.com.vn:8443/browse/';
 const SP_STATUS_LABEL = { todo:'To Do', inprogress:'In Progress', review:'In Review / QA', returned:'Returned', done:'Done' };
 
-let _sprintStore = [];
-let _sprintFilter = 'all';
+// Data: _sprintList = [{id,name,goal,startDate,endDate}], _sprintCards = [{sprintId,cardId,title,status,note,ac,extra}]
+let _sprintList  = [];
+let _sprintCards = [];
+let _spActiveSprintId = null;  // null = list view, string = detail view
+let _spCardFilter = 'all';
 
 function spLoad() {
-  try { _sprintStore = JSON.parse(localStorage.getItem('_sprintStore') || '[]'); } catch { _sprintStore = []; }
+  try { _sprintList  = JSON.parse(localStorage.getItem('_sprintList')  || '[]'); } catch { _sprintList  = []; }
+  try { _sprintCards = JSON.parse(localStorage.getItem('_sprintCards') || '[]'); } catch { _sprintCards = []; }
 }
 function spSave() {
-  localStorage.setItem('_sprintStore', JSON.stringify(_sprintStore));
+  localStorage.setItem('_sprintList',  JSON.stringify(_sprintList));
+  localStorage.setItem('_sprintCards', JSON.stringify(_sprintCards));
   gistAutoSave();
 }
 
@@ -1565,105 +1585,213 @@ function toggleSprintPage() {
     dash.style.display = 'none';
     page.style.display = 'block';
     spLoad();
-    renderSprintPage();
+    _spActiveSprintId = null;
+    renderSprintView();
   } else {
     page.style.display = 'none';
     dash.style.display = 'grid';
   }
 }
 
-function spSetFilter(f, btn) {
-  _sprintFilter = f;
-  document.querySelectorAll('.sp-filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderSprintList();
+function renderSprintView() {
+  if (_spActiveSprintId === null) renderSprintListView();
+  else renderSprintDetailView(_spActiveSprintId);
 }
 
-function renderSprintPage() {
-  document.getElementById('sprint-count').textContent = `${_sprintStore.length} cards`;
-  renderSprintList();
-}
-
-function renderSprintList() {
-  const list = document.getElementById('sprint-list');
-  const cards = _sprintFilter === 'all' ? _sprintStore : _sprintStore.filter(c => c.status === _sprintFilter);
-  if (!cards.length) {
-    list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">${_sprintFilter === 'all' ? 'Chưa có card nào — nhấn ＋ Thêm card' : 'Không có card nào trong trạng thái này'}</div>`;
-    return;
-  }
-  list.innerHTML = cards.map(c => {
-    const realIdx = _sprintStore.indexOf(c);
-    const badge = `<span class="sp-badge ${c.status}">${SP_STATUS_LABEL[c.status] || c.status}</span>`;
-    const notePreview = c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : '';
-    const acBadge = c.ac ? `<span style="font-size:10px;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green-border);border-radius:4px;padding:1px 6px;margin-left:6px">AC</span>` : '';
-    const extraBadge = c.extra ? `<span style="font-size:10px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:4px;padding:1px 6px;margin-left:4px">Bổ sung</span>` : '';
-    return `<div class="sp-card" onclick="openSprintCardModal(${realIdx})">
-      <div class="sp-card-left">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <a class="sp-card-id" href="${JIRA_BASE}${esc(c.id)}" target="_blank" onclick="event.stopPropagation()">${esc(c.id)}</a>
-          ${acBadge}${extraBadge}
-        </div>
-        <div class="sp-card-title">${esc(c.title)}</div>
-        ${notePreview}
+// ── Sprint list view ──
+function renderSprintListView() {
+  document.getElementById('sprint-page').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <button onclick="toggleSprintPage()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Quay lại</button>
+      <h2 style="font-size:16px;font-weight:700;color:var(--text);margin:0">🏃 Sprint</h2>
+      <span style="font-size:12px;color:var(--text3)">${_sprintList.length} sprints</span>
+      <div style="margin-left:auto">
+        <button onclick="openSprintModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm sprint</button>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-        ${badge}
+    </div>
+    <div id="sp-sprint-list">${renderSprintCards()}</div>`;
+}
+
+function renderSprintCards() {
+  if (!_sprintList.length) return `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">Chưa có sprint nào — nhấn ＋ Thêm sprint</div>`;
+  return _sprintList.map((s, i) => {
+    const cards = _sprintCards.filter(c => c.sprintId === s.id);
+    const done  = cards.filter(c => c.status === 'done').length;
+    const ret   = cards.filter(c => c.status === 'returned').length;
+    const dateRange = (s.startDate || s.endDate) ? `<span style="font-size:11px;color:var(--text3)">${s.startDate ? fmtDate(s.startDate) : ''}${s.startDate && s.endDate ? ' → ' : ''}${s.endDate ? fmtDate(s.endDate) : ''}</span>` : '';
+    const retBadge  = ret ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">⚠️ ${ret} returned</span>` : '';
+    return `<div class="sp-sprint-row" onclick="spOpenDetail('${s.id}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${esc(s.name)}</div>
+        ${s.goal ? `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">${esc(s.goal)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${dateRange}${retBadge}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <span style="font-size:12px;color:var(--text3)">${cards.length} cards · ${done} done</span>
+        <button onclick="event.stopPropagation();openSprintModal(${i})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);color:var(--text2)">✏️</button>
+        <svg style="color:var(--text3)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </div>`;
   }).join('');
 }
 
-function openSprintCardModal(idx) {
+function spOpenDetail(sprintId) {
+  _spActiveSprintId = sprintId;
+  _spCardFilter = 'all';
+  renderSprintDetailView(sprintId);
+}
+
+// ── Sprint detail view (cards) ──
+function renderSprintDetailView(sprintId) {
+  const sprint = _sprintList.find(s => s.id === sprintId);
+  if (!sprint) { _spActiveSprintId = null; renderSprintListView(); return; }
+  const allCards = _sprintCards.filter(c => c.sprintId === sprintId);
+  const cards = _spCardFilter === 'all' ? allCards : allCards.filter(c => c.status === _spCardFilter);
+  const statusCounts = {};
+  allCards.forEach(c => statusCounts[c.status] = (statusCounts[c.status]||0)+1);
+
+  document.getElementById('sprint-page').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+      <button onclick="_spActiveSprintId=null;renderSprintListView()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Sprints</button>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">${esc(sprint.name)}</div>
+        ${sprint.goal ? `<div style="font-size:12px;color:var(--text2);margin-top:1px">${esc(sprint.goal)}</div>` : ''}
+      </div>
+      <div style="margin-left:auto">
+        <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
+      </div>
+    </div>
+    <div class="sp-filter-bar" style="margin-bottom:16px;margin-top:12px">
+      ${['all','todo','inprogress','review','returned','done'].map(f => {
+        const label = f === 'all' ? `Tất cả (${allCards.length})` : `${SP_STATUS_LABEL[f]}${statusCounts[f]?' ('+statusCounts[f]+')':''}`;
+        return `<button class="sp-filter-btn${_spCardFilter===f?' active':''}" onclick="spCardFilter('${f}',this)">${label}</button>`;
+      }).join('')}
+    </div>
+    <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>`;
+}
+
+function renderCardList(cards, sprintId) {
+  if (!cards.length) return `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">Không có card nào</div>`;
+  return cards.map(c => {
+    const globalIdx = _sprintCards.indexOf(c);
+    const badge = `<span class="sp-badge ${c.status}">${SP_STATUS_LABEL[c.status]||c.status}</span>`;
+    const notePreview = c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : '';
+    const acBadge    = c.ac    ? `<span style="font-size:10px;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green-border);border-radius:4px;padding:1px 6px">AC</span>` : '';
+    const extraBadge = c.extra ? `<span style="font-size:10px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:4px;padding:1px 6px">Bổ sung</span>` : '';
+    return `<div class="sp-card" onclick="openCardModal('${sprintId}',${globalIdx})">
+      <div class="sp-card-left">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+          <a class="sp-card-id" href="${JIRA_BASE}${esc(c.cardId)}" target="_blank" onclick="event.stopPropagation()">${esc(c.cardId)}</a>
+          ${acBadge}${extraBadge}
+        </div>
+        <div class="sp-card-title">${esc(c.title)}</div>
+        ${notePreview}
+      </div>
+      <div style="flex-shrink:0">${badge}</div>
+    </div>`;
+  }).join('');
+}
+
+function spCardFilter(f, btn) {
+  _spCardFilter = f;
+  renderSprintDetailView(_spActiveSprintId);
+}
+
+// ── Sprint modal (create/edit sprint) ──
+function openSprintModal(idx) {
   const isEdit = idx !== undefined;
+  const s = isEdit ? _sprintList[idx] : {};
+  document.getElementById('sp-sprint-modal-title').textContent = isEdit ? '✏️ Chỉnh sửa sprint' : '＋ Thêm sprint';
+  document.getElementById('sp-sprint-edit-idx').value = isEdit ? idx : '';
+  document.getElementById('sp-sprint-name').value = s.name || '';
+  document.getElementById('sp-sprint-goal').value = s.goal || '';
+  document.getElementById('sp-sprint-start').value = s.startDate || '';
+  document.getElementById('sp-sprint-end').value   = s.endDate   || '';
+  document.getElementById('sp-sprint-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
+  document.getElementById('sp-sprint-modal-overlay').style.display = 'block';
+  document.getElementById('sp-sprint-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('sp-sprint-name').focus(), 50);
+}
+function closeSprintModal() {
+  document.getElementById('sp-sprint-modal-overlay').style.display = 'none';
+  document.getElementById('sp-sprint-modal').style.display = 'none';
+}
+function saveSprintMeta() {
+  const name = document.getElementById('sp-sprint-name').value.trim();
+  if (!name) { document.getElementById('sp-sprint-name').focus(); showToast('⚠️ Nhập tên sprint', 'error'); return; }
+  const sprint = {
+    id:        Date.now().toString(36),
+    name,
+    goal:      document.getElementById('sp-sprint-goal').value.trim(),
+    startDate: document.getElementById('sp-sprint-start').value,
+    endDate:   document.getElementById('sp-sprint-end').value,
+  };
+  const editIdx = document.getElementById('sp-sprint-edit-idx').value;
+  if (editIdx !== '') { sprint.id = _sprintList[+editIdx].id; _sprintList[+editIdx] = sprint; }
+  else { _sprintList.unshift(sprint); }
+  spSave();
+  closeSprintModal();
+  renderSprintListView();
+  showToast(`✅ Đã lưu sprint: ${name}`, 'success', 1500);
+}
+function deleteSprintMeta() {
+  const idx = +document.getElementById('sp-sprint-edit-idx').value;
+  const s = _sprintList[idx];
+  if (!s || !confirm(`Xoá sprint "${s.name}"? Tất cả cards trong sprint cũng bị xoá.`)) return;
+  _sprintCards = _sprintCards.filter(c => c.sprintId !== s.id);
+  _sprintList.splice(idx, 1);
+  spSave();
+  closeSprintModal();
+  _spActiveSprintId = null;
+  renderSprintListView();
+  showToast(`🗑 Đã xoá sprint`, 'info', 1500);
+}
+
+// ── Card modal ──
+function openCardModal(sprintId, globalIdx) {
+  const isEdit = globalIdx !== undefined;
+  const c = isEdit ? _sprintCards[globalIdx] : {};
   document.getElementById('sp-modal-title').textContent = isEdit ? '✏️ Chỉnh sửa card' : '＋ Thêm card';
-  document.getElementById('sp-edit-idx').value = isEdit ? idx : '';
+  document.getElementById('sp-edit-idx').value   = isEdit ? globalIdx : '';
+  document.getElementById('sp-edit-sprint').value = sprintId;
   document.getElementById('sp-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
-  const c = isEdit ? _sprintStore[idx] : {};
-  document.getElementById('sp-id').value = c.id || '';
-  document.getElementById('sp-title').value = c.title || '';
+  document.getElementById('sp-id').value     = c.cardId || '';
+  document.getElementById('sp-title').value  = c.title  || '';
   document.getElementById('sp-status').value = c.status || 'todo';
-  document.getElementById('sp-note').value = c.note || '';
-  document.getElementById('sp-ac').value = c.ac || '';
-  document.getElementById('sp-extra').value = c.extra || '';
+  document.getElementById('sp-note').value   = c.note   || '';
+  document.getElementById('sp-ac').value     = c.ac     || '';
+  document.getElementById('sp-extra').value  = c.extra  || '';
   document.getElementById('sp-modal-overlay').style.display = 'block';
   document.getElementById('sp-modal').style.display = 'block';
   setTimeout(() => document.getElementById('sp-id').focus(), 50);
 }
-
 function closeSprintCardModal() {
   document.getElementById('sp-modal-overlay').style.display = 'none';
   document.getElementById('sp-modal').style.display = 'none';
 }
-
 function saveSprintCard() {
-  const id = document.getElementById('sp-id').value.trim().toUpperCase();
-  if (!id) { document.getElementById('sp-id').focus(); showToast('⚠️ Nhập Card ID', 'error'); return; }
-  const card = {
-    id,
-    title:  document.getElementById('sp-title').value.trim(),
-    status: document.getElementById('sp-status').value,
-    note:   document.getElementById('sp-note').value.trim(),
-    ac:     document.getElementById('sp-ac').value.trim(),
-    extra:  document.getElementById('sp-extra').value.trim(),
-  };
+  const cardId = document.getElementById('sp-id').value.trim().toUpperCase();
+  if (!cardId) { document.getElementById('sp-id').focus(); showToast('⚠️ Nhập Card ID', 'error'); return; }
+  const sprintId = document.getElementById('sp-edit-sprint').value;
+  const card = { sprintId, cardId, title: document.getElementById('sp-title').value.trim(), status: document.getElementById('sp-status').value, note: document.getElementById('sp-note').value.trim(), ac: document.getElementById('sp-ac').value.trim(), extra: document.getElementById('sp-extra').value.trim() };
   const editIdx = document.getElementById('sp-edit-idx').value;
-  if (editIdx !== '') { _sprintStore[+editIdx] = card; }
-  else { _sprintStore.unshift(card); }
+  if (editIdx !== '') _sprintCards[+editIdx] = card;
+  else _sprintCards.unshift(card);
   spSave();
-  renderSprintPage();
   closeSprintCardModal();
-  showToast(`✅ Đã lưu ${id}`, 'success', 1500);
+  renderSprintDetailView(sprintId);
+  showToast(`✅ Đã lưu ${cardId}`, 'success', 1500);
 }
-
 function deleteSprintCard() {
   const idx = +document.getElementById('sp-edit-idx').value;
-  const c = _sprintStore[idx];
-  if (!c || !confirm(`Xoá card ${c.id}? Không thể hoàn tác.`)) return;
-  _sprintStore.splice(idx, 1);
+  const c = _sprintCards[idx];
+  if (!c || !confirm(`Xoá card ${c.cardId}?`)) return;
+  const sprintId = c.sprintId;
+  _sprintCards.splice(idx, 1);
   spSave();
-  renderSprintPage();
   closeSprintCardModal();
-  showToast(`🗑 Đã xoá ${c.id}`, 'info', 1500);
+  renderSprintDetailView(sprintId);
+  showToast(`🗑 Đã xoá ${c.cardId}`, 'info', 1500);
 }
 
 // ── ADD TASK ─────────────────────────────────────────────────────────────────
@@ -2673,7 +2801,8 @@ async function _gistPullRaw(token, id) {
   if (snap.tasks?.length) renderDashboard(snap.tasks, 'GitHub Gist', 'GitHub Gist');
   if (snap.worklogs)   Object.entries(snap.worklogs).forEach(([k,v])   => localStorage.setItem(k, JSON.stringify(v)));
   if (snap.interrupts) Object.entries(snap.interrupts).forEach(([k,v]) => localStorage.setItem(k, JSON.stringify(v)));
-  if (snap.sprint)     { _sprintStore = snap.sprint; localStorage.setItem('_sprintStore', JSON.stringify(_sprintStore)); }
+  if (snap.sprintList)  { _sprintList  = snap.sprintList;  localStorage.setItem('_sprintList',  JSON.stringify(_sprintList)); }
+  if (snap.sprintCards) { _sprintCards = snap.sprintCards; localStorage.setItem('_sprintCards', JSON.stringify(_sprintCards)); }
   document.getElementById('gs-status-text').textContent = `Pull lúc ${new Date().toLocaleTimeString('vi-VN')}`;
   return snap.tasks;
 }
@@ -2886,7 +3015,7 @@ function driveCollectAll() {
       if (k.startsWith('intr_'))    interrupts[k] = JSON.parse(localStorage.getItem(k));
     } catch {}
   }
-  return { tasks: _taskStore, worklogs, interrupts, sprint: _sprintStore, savedAt: new Date().toISOString(), version: 2 };
+  return { tasks: _taskStore, worklogs, interrupts, sprintList: _sprintList, sprintCards: _sprintCards, savedAt: new Date().toISOString(), version: 2 };
 }
 
 function driveAutoSave() { /* no-op: backup now via Claude MCP */ }
