@@ -2518,7 +2518,9 @@ function openDrawer(idx) {
 
   // Description & note — only show when has content; images only when exist
   const hasImages = (t.images||[]).length > 0;
-  const descHtml = (t.description || hasImages) ? `<div class="drawer-row"><div class="dr-label">Mô tả ${editBtn('description')}</div>${t.description ? `<div class="dr-value" id="field-description">${esc(t.description)}</div>` : `<div id="field-description"></div>`}<div class="img-gallery" id="img-gallery-${idx}"></div></div>` : `<div id="field-description" style="display:none"></div><div class="img-gallery" id="img-gallery-${idx}" style="display:none"></div>`;
+  const descHtml = (t.description || hasImages)
+    ? `<div class="drawer-row"><div class="dr-label">Mô tả ${editBtn('description')}</div><div class="dr-value" id="field-description">${esc(t.description||'')}</div><div class="img-gallery" id="img-gallery-${idx}"></div></div>`
+    : `<div id="field-description" style="display:none"></div><div class="img-gallery" id="img-gallery-${idx}" style="display:none"></div>`;
   const noteHtml = t.note ? `<div class="drawer-row"><div class="dr-label">Ghi chú / Nguồn ${editBtn('note')}</div><div class="dr-value" id="field-note">${esc(t.note)}</div></div>` : `<div id="field-note" style="display:none"></div>`;
 
   // Write-back row — hidden for done tasks
