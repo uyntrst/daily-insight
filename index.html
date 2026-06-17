@@ -1720,40 +1720,105 @@ function renderSprintDetailView(sprintId) {
     <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>`;
 }
 
+const _spExpandedAC = new Set();
+
+function spPrepStyle(active) {
+  return active
+    ? 'background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)'
+    : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)';
+}
+
 function renderCardList(cards, sprintId) {
   if (!cards.length) return `<div style="text-align:center;padding:60px 0;color:var(--text3);font-size:14px">Không có card nào</div>`;
   return cards.map(c => {
     const globalIdx = _sprintCards.indexOf(c);
     const devStatus = c.devStatus || 'todo';
-    const devBadge = `<span class="sp-badge ${devStatus}">${SP_STATUS_LABEL[devStatus]||devStatus}</span>`;
-    const notePreview = c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : '';
+    const acOpen = _spExpandedAC.has(globalIdx);
 
-    function prepBtnStyle(active) {
-      return active
-        ? 'background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)'
-        : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)';
-    }
+    const devSelect = `<select onchange="spSaveField(${globalIdx},'devStatus',this.value)" onclick="event.stopPropagation()" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font)">
+      ${['todo','inprogress','review','returned','done'].map(s => `<option value="${s}"${devStatus===s?' selected':''}>${SP_STATUS_LABEL[s]}</option>`).join('')}
+    </select>`;
 
-    const prepCheckBtn    = `<button style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${prepBtnStyle(c.prepChecked)}" onclick="event.stopPropagation();spCardToggle(${globalIdx},'prepChecked')">✓ Check</button>`;
-    const prepSuppBtn     = `<button style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${prepBtnStyle(c.prepSupplemented)}" onclick="event.stopPropagation();spCardToggle(${globalIdx},'prepSupplemented')">✓ Bổ sung</button>`;
-    const prepDocsBtn     = `<button style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${prepBtnStyle(c.prepDocs)}" onclick="event.stopPropagation();spCardToggle(${globalIdx},'prepDocs')">✓ Docs/AC</button>`;
-    const prodCheckBadge  = c.prodCheck ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--orange-bg);color:var(--orange-text);border:1px solid var(--orange-border)">📦 Prod</span>` : '';
+    const prodBtn = `<button onclick="event.stopPropagation();spCardToggle(${globalIdx},'prodCheck')" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${c.prodCheck ? 'background:#fff7ed;color:#ea580c;border:1px solid #fed7aa' : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)'}">📦 Prod</button>`;
 
-    return `<div class="sp-card" onclick="openCardModal('${sprintId}',${globalIdx})">
-      <div class="sp-card-left" onclick="openCardModal('${sprintId}',${globalIdx})">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
-          <a class="sp-card-id" href="${JIRA_BASE}${esc(c.cardId)}" target="_blank" onclick="event.stopPropagation()">${esc(c.cardId)}</a>
+    const acBtn = `<button onclick="event.stopPropagation();spToggleAC(${globalIdx})" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${acOpen ? 'background:var(--blue-bg);color:var(--blue-text);border:1px solid var(--blue-border)' : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)'}">📋 AC</button>`;
+
+    const delBtn = `<button onclick="event.stopPropagation();spDeleteCard(${globalIdx})" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;background:none;color:var(--text3);border:1px solid var(--border)" title="Xoá card">×</button>`;
+
+    const acSection = acOpen ? `
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Acceptance Criteria</div>
+          <textarea id="sp-ac-ta-${globalIdx}" onclick="event.stopPropagation()" onblur="spSaveField(${globalIdx},'ac',this.value)" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--font);background:var(--surface2);color:var(--text);resize:vertical;min-height:80px;box-sizing:border-box;outline:none" onfocus="this.style.borderColor='var(--blue)'" onblurCapture="this.style.borderColor='var(--border)'">${esc(c.ac||'')}</textarea>
         </div>
-        <div class="sp-card-title">${esc(c.title)}</div>
-        ${c.note ? `<div class="sp-card-note">${esc(c.note)}</div>` : `<div class="sp-card-note" style="color:var(--text3);opacity:.5;font-style:italic">Ghi chú nhanh...</div>`}
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Ghi chú bổ sung</div>
+          <textarea id="sp-extra-ta-${globalIdx}" onclick="event.stopPropagation()" onblur="spSaveField(${globalIdx},'extra',this.value)" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--font);background:var(--surface2);color:var(--text);resize:vertical;min-height:60px;box-sizing:border-box;outline:none" onfocus="this.style.borderColor='var(--blue)'" onblurCapture="this.style.borderColor='var(--border)'">${esc(c.extra||'')}</textarea>
+        </div>
+      </div>` : '';
+
+    return `<div class="sp-card" style="flex-direction:column;align-items:stretch;cursor:default" id="sp-card-row-${globalIdx}">
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <a class="sp-card-id" href="${JIRA_BASE}${esc(c.cardId)}" target="_blank">${esc(c.cardId)}</a>
+            <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(c.title)}</span>
+          </div>
+          <div id="sp-note-view-${globalIdx}" onclick="spEditNote(${globalIdx})" style="font-size:12px;color:${c.note?'var(--text2)':'var(--text3)'};cursor:text;padding:4px 6px;border-radius:6px;border:1px dashed transparent;min-height:24px;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'">${c.note ? esc(c.note) : '<span style="opacity:.5;font-style:italic">Ghi chú nhanh — click để thêm</span>'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+            <button onclick="spCardToggle(${globalIdx},'prepChecked')" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${spPrepStyle(c.prepChecked)}">✓ Check</button>
+            <button onclick="spCardToggle(${globalIdx},'prepSupplemented')" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${spPrepStyle(c.prepSupplemented)}">✓ Bổ sung</button>
+            <button onclick="spCardToggle(${globalIdx},'prepDocs')" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;${spPrepStyle(c.prepDocs)}">✓ Docs/AC</button>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            ${devSelect}${prodBtn}${acBtn}${delBtn}
+          </div>
+        </div>
       </div>
-      <div style="display:flex;align-items:flex-start;gap:6px;flex-shrink:0;flex-wrap:wrap;max-width:320px" onclick="openCardModal('${sprintId}',${globalIdx})">
-        ${prepCheckBtn}${prepSuppBtn}${prepDocsBtn}
-        ${devBadge}
-        ${prodCheckBadge}
-      </div>
+      ${acSection}
     </div>`;
   }).join('');
+}
+
+function spEditNote(globalIdx) {
+  const c = _sprintCards[globalIdx];
+  if (!c) return;
+  const viewEl = document.getElementById(`sp-note-view-${globalIdx}`);
+  if (!viewEl) return;
+  const ta = document.createElement('textarea');
+  ta.value = c.note || '';
+  ta.style.cssText = 'width:100%;padding:4px 6px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);resize:none;min-height:52px;box-sizing:border-box;outline:none;display:block';
+  ta.onblur = () => { spSaveField(globalIdx, 'note', ta.value); };
+  ta.onkeydown = e => { if (e.key === 'Escape') { spSaveField(globalIdx, 'note', ta.value); } };
+  viewEl.replaceWith(ta);
+  ta.focus();
+}
+
+function spSaveField(globalIdx, field, value) {
+  const c = _sprintCards[globalIdx];
+  if (!c) return;
+  c[field] = value.trim !== undefined ? value.trim() : value;
+  spSave();
+  renderSprintDetailView(_spActiveSprintId);
+}
+
+function spToggleAC(globalIdx) {
+  if (_spExpandedAC.has(globalIdx)) _spExpandedAC.delete(globalIdx);
+  else _spExpandedAC.add(globalIdx);
+  renderSprintDetailView(_spActiveSprintId);
+}
+
+function spDeleteCard(globalIdx) {
+  const c = _sprintCards[globalIdx];
+  if (!c || !confirm(`Xoá card ${c.cardId}?`)) return;
+  const sprintId = c.sprintId;
+  _sprintCards.splice(globalIdx, 1);
+  _spExpandedAC.delete(globalIdx);
+  spSave();
+  renderSprintDetailView(sprintId);
+  showToast(`🗑 Đã xoá ${c.cardId}`, 'info', 1500);
 }
 
 function spCardToggle(globalIdx, field) {
