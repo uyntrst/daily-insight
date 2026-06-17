@@ -1621,7 +1621,7 @@ function openDrawer(idx) {
   const doneCount = clItems.filter(c => c.done).length;
   const naContent = clItems.length
     ? `<div class="cl-list">${clItems.map((c,i) => `<div class="cl-item${c.done?' done':''}" onclick="checklistToggle(${idx},${i})"><span class="cl-box">${c.done?'✓':''}</span><span class="cl-text">${esc(c.text)}</span></div>`).join('')}</div><div class="cl-progress">${doneCount}/${clItems.length} hoàn thành</div>`
-    : `<span class="${t.nextAction ? '' : 'empty'}">${esc(t.nextAction || 'Chưa xác định — nhấn ✏️ để thêm')}</span>`;
+    : (t.nextAction ? `<span>${esc(t.nextAction)}</span>` : '');
   const naHtml = `
     <div class="drawer-action-block ${acColor}">
       <div class="dab-label">✅ Cần làm gì <button class="edit-btn" onclick="drawerEditField(${idx},'nextAction')" title="Chỉnh sửa">✏️</button></div>
