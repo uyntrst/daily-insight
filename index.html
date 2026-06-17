@@ -1694,6 +1694,26 @@ function spUpdateSprintDate(sprintId, field, value) {
 }
 
 
+function spToggleNote(sprintId) {
+  const col = document.getElementById('sp-note-col');
+  const grid = document.getElementById('sp-main-grid');
+  const btn = document.getElementById('sp-note-toggle-btn');
+  if (!col) return;
+  const visible = col.style.display !== 'none';
+  if (visible) {
+    col.style.display = 'none';
+    grid.style.gridTemplateColumns = '1fr';
+    if (btn) { btn.style.background = 'none'; btn.style.color = 'var(--text2)'; btn.style.borderColor = 'var(--border)'; }
+  } else {
+    col.style.display = 'block';
+    grid.style.gridTemplateColumns = 'repeat(12,1fr)';
+    document.getElementById('sp-card-col').style.gridColumn = 'span 9';
+    col.style.gridColumn = 'span 3';
+    if (btn) { btn.style.background = 'var(--blue-bg)'; btn.style.color = 'var(--blue-text)'; btn.style.borderColor = 'var(--blue-border)'; }
+    spNoteInit();
+  }
+}
+
 function spNoteExec(cmd) {
   const ed = document.getElementById('sp-note-editor');
   if (!ed) return;
@@ -1782,31 +1802,34 @@ function renderSprintDetailView(sprintId) {
           ${sprint.endDate   ? `<span style="font-size:11px;color:var(--text3)"><b>End:</b> ${sprint.endDate}</span>`   : ''}
         </div>` : ''}
       </div>
-      <div style="margin-left:auto">
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button onclick="spToggleNote('${sprintId}')" id="sp-note-toggle-btn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text2)">📝 Ghi chú</button>
         <button onclick="openCardModal('${sprintId}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">＋ Thêm card</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:16px;align-items:start;margin-top:12px">
-      <div style="grid-column:span 9;min-width:0">
+    <div id="sp-main-grid" style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start;margin-top:12px">
+      <div id="sp-card-col" style="min-width:0">
         <div class="sp-filter-bar" style="margin-bottom:16px">
           ${filters.map(f => `<button class="sp-filter-btn${_spCardFilter===f.key?' active':''}" onclick="spCardFilter('${f.key}',this)">${f.label}</button>`).join('')}
         </div>
         <div id="sp-card-list">${renderCardList(cards, sprintId)}</div>
       </div>
-      <div style="grid-column:span 3;position:sticky;top:16px">
+      <div id="sp-note-col" style="display:none;position:sticky;top:16px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
             <span style="font-size:12px;font-weight:700;color:var(--text)">📝 Ghi chú sprint</span>
             <div style="display:flex;gap:4px">
-              <button onclick="spNoteExec('insertUnorderedList')" title="Bullet list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">•≡</button>
-              <button onclick="spNoteExec('insertOrderedList')" title="Numbered list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">1≡</button>
-              <button onclick="spNoteExec('bold')" title="Bold" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2);font-weight:700">B</button>
+              <button onclick="spNoteExec('bold')" title="Bold" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);color:var(--text2)">B</button>
+              <button onclick="spNoteExec('italic')" title="Italic" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2);font-style:italic">I</button>
+              <button onclick="spNoteExec('insertUnorderedList')" title="Bullet list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">•≡</button>
+              <button onclick="spNoteExec('insertOrderedList')" title="Numbered list" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">1≡</button>
+              <button onclick="spNoteExec('insertHorizontalRule')" title="Divider" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">—</button>
             </div>
           </div>
           <div id="sp-note-editor" contenteditable="true" spellcheck="false"
-            style="min-height:200px;max-height:70vh;overflow-y:auto;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.6;outline:none;font-family:var(--font)"
+            style="min-height:240px;max-height:75vh;overflow-y:auto;padding:14px 16px;font-size:13px;color:var(--text);line-height:1.7;outline:none;font-family:var(--font)"
             data-sprint="${sprintId}"
-          >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Dùng cho meeting, ghi chú sprint...</p>'}</div>
+          >${sprint.noteHtml || '<p style="color:var(--text3);font-style:italic" data-placeholder="true">Ghi chú cho sprint, meeting notes, quyết định...</p>'}</div>
         </div>
       </div>
     </div>
