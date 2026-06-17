@@ -5,7 +5,7 @@
     {
       "name": "daily-insight",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd /Users/uyntrst && python3 -m http.server --directory /tmp/daily-insight ${PORT:-3000}"]
+      "runtimeArgs": ["-c", "ln -sfn '/Users/uyntrst/Documents/workspaces/PM:PO Daily Insight App' /tmp/daily-insight && cd /Users/uyntrst && python3 -m http.server --directory /tmp/daily-insight ${PORT:-3000}"]
     }
   ]
 }
