@@ -376,6 +376,20 @@
   .dr-value { font-size:13px; color:var(--text2); line-height:1.6; white-space:pre-wrap; }
   .dr-value.empty { color:var(--text3); font-style:italic; }
 
+  /* Link chips (Google Sheet / Docs) */
+  .dr-links { display:flex; flex-direction:column; gap:6px; }
+  .dr-link-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-size:13px; color:var(--text); text-decoration:none; max-width:100%; transition:background .15s,border-color .15s; }
+  .dr-link-chip:hover { background:var(--blue-bg); border-color:var(--blue-border); }
+  .dr-link-chip svg { flex-shrink:0; }
+  .dr-link-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dr-link-add { align-self:flex-start; background:none; border:1px dashed var(--border); border-radius:8px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:var(--font); color:var(--text3); }
+  .dr-link-add:hover { border-color:var(--blue); color:var(--blue); }
+  .link-edit-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .link-edit-row input { flex:1; min-width:0; border:1px solid var(--border); border-radius:7px; padding:6px 9px; font-size:12px; font-family:var(--font); background:var(--surface); color:var(--text); outline:none; }
+  .link-edit-row input:focus { border-color:var(--blue); }
+  .link-edit-row .link-edit-title { flex:0 0 38%; }
+  .link-edit-del { background:none; border:1px solid var(--border); border-radius:7px; padding:4px 9px; cursor:pointer; color:var(--text3); font-size:13px; }
+
   /* Inline edit */
   .edit-btn { background:none; border:none; cursor:pointer; font-size:12px; opacity:0; padding:0 2px; transition:opacity .15s; line-height:1; }
   .dab-label:hover .edit-btn, .dr-label:hover .edit-btn { opacity:.6; }
@@ -1742,15 +1756,66 @@ function toggleSprintPage() {
     spLoad();
     _spActiveSprintId = null;
     renderSprintView();
+    _spSetHash('sprint');
   } else {
     page.style.display = 'none';
     dash.style.display = 'grid';
+    _spSetHash('');
   }
 }
 
 function renderSprintView() {
   if (_spActiveSprintId === null) renderSprintListView();
   else renderSprintDetailView(_spActiveSprintId);
+}
+
+// ── URL hash routing (giữ trạng thái sprint khi reload) ──
+let _spSuppressHashRoute = false;
+function _spSetHash(h) {
+  _spSuppressHashRoute = true;
+  if (h) location.hash = h;
+  else history.replaceState(null, '', location.pathname + location.search);
+  setTimeout(() => { _spSuppressHashRoute = false; }, 0);
+}
+
+function spRouteFromHash() {
+  const h = location.hash.replace(/^#/, '');
+  const page = document.getElementById('sprint-page');
+  const dash = document.getElementById('dashboard');
+  const done = document.getElementById('done-page');
+  if (!h.startsWith('sprint')) {
+    if (page.style.display !== 'none') {
+      page.style.display = 'none';
+      done.style.display = 'none';
+      dash.style.display = 'grid';
+    }
+    return;
+  }
+  done.style.display = 'none';
+  dash.style.display = 'none';
+  const dz = document.getElementById('dropzone');
+  if (dz) dz.style.display = 'none';
+  page.style.display = 'block';
+  spLoad();
+  const id = h.split('/')[1] ? decodeURIComponent(h.split('/')[1]) : null;
+  if (id && _sprintList.some(s => s.id === id)) {
+    _spActiveSprintId = id;
+    renderSprintDetailView(id);
+  } else {
+    _spActiveSprintId = null;
+    renderSprintListView();
+  }
+}
+
+window.addEventListener('hashchange', () => {
+  if (_spSuppressHashRoute) return;
+  spRouteFromHash();
+});
+
+function spBackToList() {
+  _spActiveSprintId = null;
+  renderSprintListView();
+  _spSetHash('sprint');
 }
 
 // ── Sprint list view ──
@@ -1797,6 +1862,7 @@ function spOpenDetail(sprintId) {
   _spCardFilter = 'all';
   _spTab = 'cards';
   renderSprintDetailView(sprintId);
+  _spSetHash('sprint/' + encodeURIComponent(sprintId));
 }
 
 function spUpdateSprintDate(sprintId, field, value) {
@@ -2006,7 +2072,7 @@ function renderSprintDetailView(sprintId) {
 
   document.getElementById('sprint-page').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
-      <button onclick="_spActiveSprintId=null;renderSprintListView()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Sprints</button>
+      <button onclick="spBackToList()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font);color:var(--text2)">← Sprints</button>
       <div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:16px;font-weight:700;color:var(--text)">${esc(sprint.name)}</span>
@@ -2813,6 +2879,8 @@ function openDrawer(idx) {
   // Description & note — only show when has content; images only when exist
   const hasImages = (t.images||[]).length > 0;
   const descHtml = `<div class="drawer-row"><div class="dr-label">Mô tả ${editBtn('description')}</div>${t.description ? `<div class="dr-value" id="field-description">${esc(t.description)}</div>` : `<div id="field-description"></div>`}<div class="img-gallery" id="img-gallery-${idx}"></div></div>`;
+  const linksEditBtn = isDone ? '' : `<button class="edit-btn" onclick="drawerEditLinks(${idx})" title="Chỉnh sửa link">✏️</button>`;
+  const linksHtml = `<div class="drawer-row"><div class="dr-label">🔗 Tài liệu ${linksEditBtn}</div><div id="field-links">${buildLinkChips(idx, t, isDone)}</div></div>`;
   const noteHtml = `
     <div class="note-tab-bar">
       ${t.note
@@ -2861,6 +2929,7 @@ function openDrawer(idx) {
     ${riskHtml}
     <div class="drawer-divider"></div>
     ${descHtml}
+    ${linksHtml}
     ${noteHtml}
     ${updateHtml}
     ${buildWorkLogHtml(t)}
@@ -3032,6 +3101,88 @@ function drawerSaveField(idx, field) {
   t[field] = ta.value.trim();
   saveTasksToStorage();
   showToast('✏️ Đã lưu', 'success', 1500);
+  openDrawer(idx);
+}
+
+// ── DOCUMENT LINKS (Google Sheet / Docs) ─────────────────────────────────────
+function linkIconSvg(url) {
+  const u = (url || '').toLowerCase();
+  // Google Sheets — green
+  if (u.includes('/spreadsheets') || u.includes('docs.google.com/sheet'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" fill="#0F9D58"/><rect x="7" y="7" width="10" height="2" fill="#fff"/><rect x="7" y="11" width="10" height="2" fill="#fff"/><rect x="7" y="15" width="10" height="2" fill="#fff"/><rect x="11" y="7" width="2" height="10" fill="#0F9D58"/></svg>`;
+  // Google Docs — blue
+  if (u.includes('/document') || u.includes('docs.google.com/doc'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" fill="#4285F4"/><rect x="7" y="7" width="10" height="1.6" fill="#fff"/><rect x="7" y="10.5" width="10" height="1.6" fill="#fff"/><rect x="7" y="14" width="7" height="1.6" fill="#fff"/></svg>`;
+  // Google Slides — yellow
+  if (u.includes('/presentation'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2" fill="#F4B400"/><rect x="7" y="8" width="10" height="7" rx="1" fill="#fff"/></svg>`;
+  // Google Drive — generic
+  if (u.includes('drive.google.com'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 3h8l6 11-4 7H6l-4-7L8 3z" fill="#4285F4"/></svg>`;
+  return `<span style="font-size:14px">🔗</span>`;
+}
+
+function buildLinkChips(idx, t, isDone) {
+  const links = (t.links || []).filter(l => l && l.url);
+  if (!links.length) {
+    return isDone ? `<div class="dr-value empty">Không có link</div>`
+                  : `<button class="dr-link-add" onclick="drawerEditLinks(${idx})">＋ Thêm link (Sheet/Docs)</button>`;
+  }
+  const chips = links.map(l => {
+    const title = (l.title && l.title.trim()) || l.url;
+    const href = String(l.url).replace(/"/g, '&quot;');
+    return `<a class="dr-link-chip" href="${href}" target="_blank" rel="noopener">${linkIconSvg(l.url)}<span>${esc(title)}</span></a>`;
+  }).join('');
+  return `<div class="dr-links">${chips}</div>`;
+}
+
+function linkEditRowHtml(l) {
+  const title = (l?.title || '').replace(/"/g, '&quot;');
+  const url   = (l?.url   || '').replace(/"/g, '&quot;');
+  return `<div class="link-edit-row">
+    <input class="link-edit-title" value="${title}" placeholder="Tên hiển thị…" />
+    <input class="link-edit-url" value="${url}" placeholder="Dán link Google Sheet / Docs…" />
+    <button class="link-edit-del" onclick="this.parentElement.remove()" title="Xoá">×</button>
+  </div>`;
+}
+
+function drawerEditLinks(idx) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  const el = document.getElementById('field-links');
+  if (!el) return;
+  const links = (t.links || []).filter(l => l && l.url);
+  const rows = (links.length ? links : [{ title: '', url: '' }]).map(linkEditRowHtml).join('');
+  el.innerHTML = `<div id="link-edit-list">${rows}</div>
+    <button class="dr-link-add" onclick="linkAddEditRow()">＋ Thêm link</button>
+    <div class="inline-edit-actions">
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:12px" onclick="drawerSaveLinks(${idx})">💾 Lưu</button>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openDrawer(${idx})">Huỷ</button>
+    </div>`;
+  const first = el.querySelector('.link-edit-url');
+  if (first) first.focus();
+}
+
+function linkAddEditRow() {
+  const list = document.getElementById('link-edit-list');
+  if (!list) return;
+  list.insertAdjacentHTML('beforeend', linkEditRowHtml({ title: '', url: '' }));
+}
+
+function drawerSaveLinks(idx) {
+  const t = _taskStore[idx];
+  if (!t) return;
+  const rows = document.querySelectorAll('#link-edit-list .link-edit-row');
+  const links = [];
+  rows.forEach(r => {
+    const url = r.querySelector('.link-edit-url').value.trim();
+    const title = r.querySelector('.link-edit-title').value.trim();
+    if (url) links.push({ url, title });
+  });
+  t.links = links;
+  saveTasksToStorage();
+  gistAutoSave();
+  showToast('🔗 Đã lưu link', 'success', 1500);
   openDrawer(idx);
 }
 
@@ -3466,11 +3617,13 @@ window.addEventListener('DOMContentLoaded', () => {
         renderMood(active); renderSidebar(active); renderMain(active);
         updateDoneCount();
         if (gistConnected()) setTimeout(gistSilentPull, 800);
+        if (location.hash.startsWith('#sprint')) spRouteFromHash();
         return;
       }
     }
   } catch(e) { console.warn('restore failed', e); }
 
+  if (location.hash.startsWith('#sprint')) spRouteFromHash();
   if (gistConnected()) gistPull();
 });
 
