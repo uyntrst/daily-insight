@@ -389,6 +389,21 @@
   .link-edit-row input:focus { border-color:var(--blue); }
   .link-edit-row .link-edit-title { flex:0 0 38%; }
   .link-edit-del { background:none; border:1px solid var(--border); border-radius:7px; padding:4px 9px; cursor:pointer; color:var(--text3); font-size:13px; }
+  .dr-link-fav { width:16px; height:16px; flex-shrink:0; border-radius:3px; object-fit:contain; }
+  .link-paste-input { width:100%; border:1px solid var(--blue-border); border-radius:7px; padding:7px 10px; font-size:13px; font-family:var(--font); background:var(--surface); color:var(--text); outline:none; }
+  .link-paste-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+  .link-paste-hint { font-size:11px; color:var(--text3); margin:4px 0 2px; }
+  .dr-link-chip-edit { cursor:default; }
+  .dr-link-chip-edit:hover { background:var(--surface2); border-color:var(--border); }
+  .link-chip-del { margin-left:2px; background:none; border:none; cursor:pointer; color:var(--text3); font-size:15px; line-height:1; padding:0 2px; flex-shrink:0; }
+  .link-chip-del:hover { color:var(--red); }
+  .link-draft-row { display:flex; align-items:center; gap:8px; padding:5px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; margin-top:6px; }
+  .link-draft-row .ldr-icon { flex-shrink:0; display:flex; align-items:center; }
+  .link-draft-row .ldr-title { flex:1; min-width:0; border:none; background:none; font-size:13px; font-family:var(--font); color:var(--text); outline:none; padding:2px 0; }
+  .link-draft-row .ldr-title::placeholder { color:var(--text3); }
+  .link-draft-row:focus-within { border-color:var(--blue); }
+  .link-draft-row .ldr-del { flex-shrink:0; background:none; border:none; cursor:pointer; color:var(--text3); font-size:15px; line-height:1; padding:0 2px; }
+  .link-draft-row .ldr-del:hover { color:var(--red); }
 
   /* Inline edit */
   .edit-btn { background:none; border:none; cursor:pointer; font-size:12px; opacity:0; padding:0 2px; transition:opacity .15s; line-height:1; }
@@ -1209,7 +1224,7 @@
 
 <!-- ── ADD TASK MODAL ── -->
 <div id="add-task-overlay" onclick="closeAddTaskModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500"></div>
-<div id="add-task-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:501;width:min(520px,94vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.18);font-family:var(--font)">
+<div id="add-task-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:501;width:min(520px,94vw);max-height:90vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.18);font-family:var(--font)">
   <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
     <div style="font-size:14px;font-weight:700;color:var(--text)">＋ Thêm task mới</div>
     <button onclick="closeAddTaskModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);line-height:1">✕</button>
@@ -1248,6 +1263,12 @@
       <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Mô tả</div>
       <textarea id="nt-desc" placeholder="Mô tả thêm... (Ctrl+V để paste ảnh)" rows="2" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box;resize:vertical" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"></textarea>
       <div class="img-gallery" id="nt-img-gallery" style="margin-top:8px"></div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">🔗 Tài liệu (link)</div>
+      <input id="nt-link-paste" class="link-paste-input" placeholder="Dán link rồi Enter (Sheet / Docs / Notion / Figma…)" onkeydown="ntLinkPasteKey(event)" onpaste="ntLinkOnPaste(event)">
+      <div class="link-paste-hint">Dán nhiều link một lúc cũng được. Gõ vào ô để đặt tên riêng cho link (bỏ trống = tên tự suy).</div>
+      <div id="nt-link-list"></div>
     </div>
   </div>
   <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
@@ -2677,16 +2698,69 @@ function ntClCollect() {
   return items;
 }
 
+// ── Add-task modal: link chips (dán là ra chip — dùng chung helper với drawer) ──
+let _ntLinks = [];
+
+function renderNtLinks() {
+  const list = document.getElementById('nt-link-list');
+  if (!list) return;
+  if (!_ntLinks.length) { list.innerHTML = ''; return; }
+  list.innerHTML = _ntLinks.map((l, i) => {
+    const ttl = (l.title || '').replace(/"/g, '&quot;');
+    const ph  = autoLinkTitle(l.url).replace(/"/g, '&quot;');
+    return `<div class="link-draft-row">
+      <span class="ldr-icon">${linkIconSvg(l.url)}</span>
+      <input class="ldr-title" value="${ttl}" placeholder="${ph}" oninput="ntLinkSetTitle(${i}, this.value)" title="Đặt tên hiển thị — bỏ trống sẽ dùng: ${ph}">
+      <button class="ldr-del" onclick="ntLinkRemove(${i})" title="Xoá">×</button>
+    </div>`;
+  }).join('');
+}
+function ntLinkSetTitle(i, val) { if (_ntLinks[i]) _ntLinks[i].title = val; }
+
+function ntAddLinks(text) {
+  const tokens = String(text || '').split(/\s+/).map(s => s.trim()).filter(Boolean);
+  let added = 0;
+  tokens.forEach(tok => {
+    if (!/^https?:\/\//i.test(tok) && !/^[\w-]+(\.[\w-]+)+/.test(tok)) return;
+    const url = normalizeUrl(tok);
+    if (_ntLinks.some(l => l.url === url)) return;
+    _ntLinks.push({ url, title: '' });
+    added++;
+  });
+  if (added) renderNtLinks();
+  return added;
+}
+
+function ntLinkPasteKey(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (ntAddLinks(e.target.value)) e.target.value = '';
+}
+
+function ntLinkOnPaste(e) {
+  const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (!text) return;
+  e.preventDefault();
+  ntAddLinks(text);
+  e.target.value = '';
+}
+
+function ntLinkRemove(i) {
+  _ntLinks.splice(i, 1);
+  renderNtLinks();
+}
+
 function openAddTaskModal() {
-  _ntImages = [];
+  _ntImages = []; _ntLinks = [];
   document.getElementById('add-task-overlay').style.display = 'block';
   document.getElementById('add-task-modal').style.display = 'block';
-  ['nt-task','nt-project','nt-deadline','nt-desc'].forEach(id => {
+  ['nt-task','nt-project','nt-deadline','nt-desc','nt-link-paste'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('nt-cl-rows').innerHTML = '';
   document.getElementById('nt-status').value = '01.In progress';
   renderNtImgGallery();
+  renderNtLinks();
   setTimeout(() => {
     document.getElementById('nt-task').focus();
     const ta = document.getElementById('nt-desc');
@@ -2709,11 +2783,14 @@ function closeAddTaskModal() {
   document.getElementById('add-task-overlay').style.display = 'none';
   document.getElementById('add-task-modal').style.display = 'none';
   _ntImages = [];
+  _ntLinks = [];
 }
 
 function submitAddTask() {
   const taskName = document.getElementById('nt-task').value.trim();
   if (!taskName) { document.getElementById('nt-task').focus(); showToast('⚠️ Nhập tên task', 'error'); return; }
+  const ntLinkInput = document.getElementById('nt-link-paste'); // gom nốt link còn trong ô
+  if (ntLinkInput && ntLinkInput.value.trim()) ntAddLinks(ntLinkInput.value);
   const status   = document.getElementById('nt-status').value;
   const newTask  = {
     task:       taskName,
@@ -2723,6 +2800,7 @@ function submitAddTask() {
     checklist:  ntClCollect().length ? ntClCollect() : undefined,
     description:document.getElementById('nt-desc').value.trim(),
     images:     _ntImages.length ? [..._ntImages] : undefined,
+    links:      _ntLinks.length ? _ntLinks.map(l => ({ url: l.url, title: (l.title || '').trim() })) : undefined,
     status,
     group:      getStatusGroup(status),
     hidden:     '',
@@ -2774,7 +2852,8 @@ function buildRisk(t, ds) {
   if (ds?.type === 'overdue') return `Deadline đã quá ${ds.diff} ngày — cần xử lý ngay hôm nay`;
   if (ds?.type === 'today')   return `Deadline hôm nay — phải hoàn thành trước cuối ngày`;
   if (ds?.type === 'soon')    return `Deadline còn ${ds.diff} ngày — không làm kịp sẽ ảnh hưởng sprint`;
-  if (!t.nextAction)          return `Chưa có next action — nguy cơ trôi task`;
+  const hasNextAction = (Array.isArray(t.checklist) && t.checklist.length > 0) || (t.nextAction && t.nextAction.trim());
+  if (!hasNextAction)         return `Chưa có next action — nguy cơ trôi task`;
   if (t.waitingFor)           return `Đang chờ phản hồi — nếu không follow-up sẽ tiếp tục block`;
   return '';
 }
@@ -3104,7 +3183,41 @@ function drawerSaveField(idx, field) {
   openDrawer(idx);
 }
 
-// ── DOCUMENT LINKS (Google Sheet / Docs) ─────────────────────────────────────
+// ── DOCUMENT LINKS (Google Sheet / Docs / any web) ───────────────────────────
+function normalizeUrl(url) {
+  const s = String(url || '').trim();
+  if (!s) return '';
+  return /^https?:\/\//i.test(s) ? s : 'https://' + s;
+}
+
+// Tên hiển thị tự suy từ URL (không gọi mạng): link Google đều bắt đăng nhập nên
+// không đọc được tên tài liệu thật → dùng loại tài liệu / tên miền là đáng tin nhất.
+function autoLinkTitle(url) {
+  const u = (url || '').toLowerCase();
+  if (u.includes('/spreadsheets') || u.includes('docs.google.com/sheet')) return 'Google Sheet';
+  if (u.includes('/document')     || u.includes('docs.google.com/doc'))   return 'Google Doc';
+  if (u.includes('/presentation')) return 'Google Slides';
+  if (u.includes('/forms/') || u.includes('forms.gle')) return 'Google Form';
+  if (u.includes('drive.google.com')) return 'Google Drive';
+  try { return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '') || url; }
+  catch { return url; }
+}
+
+// Logo web = favicon theo domain (nhúng <img> nên không vướng CORS), fallback 🔗.
+function faviconImg(url) {
+  let host = '';
+  try { host = new URL(normalizeUrl(url)).hostname; } catch { return '<span style="font-size:14px">🔗</span>'; }
+  if (!host) return '<span style="font-size:14px">🔗</span>';
+  const src = `https://www.google.com/s/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  return `<img class="dr-link-fav" src="${src}" alt="" loading="lazy" onerror="linkFavFallback(this)">`;
+}
+function linkFavFallback(img) {
+  const span = document.createElement('span');
+  span.style.fontSize = '14px';
+  span.textContent = '🔗';
+  img.replaceWith(span);
+}
+
 function linkIconSvg(url) {
   const u = (url || '').toLowerCase();
   // Google Sheets — green
@@ -3119,67 +3232,104 @@ function linkIconSvg(url) {
   // Google Drive — generic
   if (u.includes('drive.google.com'))
     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 3h8l6 11-4 7H6l-4-7L8 3z" fill="#4285F4"/></svg>`;
-  return `<span style="font-size:14px">🔗</span>`;
+  return faviconImg(url); // web khác → logo lấy từ favicon
 }
 
 function buildLinkChips(idx, t, isDone) {
   const links = (t.links || []).filter(l => l && l.url);
   if (!links.length) {
     return isDone ? `<div class="dr-value empty">Không có link</div>`
-                  : `<button class="dr-link-add" onclick="drawerEditLinks(${idx})">＋ Thêm link (Sheet/Docs)</button>`;
+                  : `<button class="dr-link-add" onclick="drawerEditLinks(${idx})">＋ Thêm link (dán Sheet/Docs/…)</button>`;
   }
   const chips = links.map(l => {
-    const title = (l.title && l.title.trim()) || l.url;
-    const href = String(l.url).replace(/"/g, '&quot;');
+    const title = (l.title && l.title.trim()) || autoLinkTitle(l.url);
+    const href = normalizeUrl(l.url).replace(/"/g, '&quot;');
     return `<a class="dr-link-chip" href="${href}" target="_blank" rel="noopener">${linkIconSvg(l.url)}<span>${esc(title)}</span></a>`;
   }).join('');
   return `<div class="dr-links">${chips}</div>`;
 }
 
-function linkEditRowHtml(l) {
-  const title = (l?.title || '').replace(/"/g, '&quot;');
-  const url   = (l?.url   || '').replace(/"/g, '&quot;');
-  return `<div class="link-edit-row">
-    <input class="link-edit-title" value="${title}" placeholder="Tên hiển thị…" />
-    <input class="link-edit-url" value="${url}" placeholder="Dán link Google Sheet / Docs…" />
-    <button class="link-edit-del" onclick="this.parentElement.remove()" title="Xoá">×</button>
-  </div>`;
-}
+// Editor: chỉ cần DÁN link → tự thành chip (logo favicon + tên tự suy). Vẫn xoá được.
+let _linkDraft = [];
 
 function drawerEditLinks(idx) {
   const t = _taskStore[idx];
   if (!t) return;
   const el = document.getElementById('field-links');
   if (!el) return;
-  const links = (t.links || []).filter(l => l && l.url);
-  const rows = (links.length ? links : [{ title: '', url: '' }]).map(linkEditRowHtml).join('');
-  el.innerHTML = `<div id="link-edit-list">${rows}</div>
-    <button class="dr-link-add" onclick="linkAddEditRow()">＋ Thêm link</button>
+  _linkDraft = (t.links || []).filter(l => l && l.url).map(l => ({ url: l.url, title: l.title || '' }));
+  el.innerHTML = `
+    <input id="link-paste-input" class="link-paste-input" placeholder="Dán link rồi Enter (Sheet / Docs / Notion / Figma…)"
+           onkeydown="linkPasteKey(event, ${idx})" onpaste="linkOnPaste(event, ${idx})" />
+    <div class="link-paste-hint">Dán nhiều link một lúc cũng được. Gõ vào ô để đặt tên riêng cho link (bỏ trống = tên tự suy).</div>
+    <div id="link-draft-list">${renderLinkDraft(idx)}</div>
     <div class="inline-edit-actions">
       <button class="btn btn-primary" style="padding:5px 14px;font-size:12px" onclick="drawerSaveLinks(${idx})">💾 Lưu</button>
       <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openDrawer(${idx})">Huỷ</button>
     </div>`;
-  const first = el.querySelector('.link-edit-url');
-  if (first) first.focus();
+  const inp = document.getElementById('link-paste-input');
+  if (inp) inp.focus();
 }
 
-function linkAddEditRow() {
-  const list = document.getElementById('link-edit-list');
-  if (!list) return;
-  list.insertAdjacentHTML('beforeend', linkEditRowHtml({ title: '', url: '' }));
+function renderLinkDraft(idx) {
+  if (!_linkDraft.length)
+    return `<div class="dr-value empty" style="margin-top:8px">Chưa có link — dán vào ô trên.</div>`;
+  return _linkDraft.map((l, i) => {
+    const ttl = (l.title || '').replace(/"/g, '&quot;');
+    const ph  = autoLinkTitle(l.url).replace(/"/g, '&quot;');
+    return `<div class="link-draft-row">
+      <span class="ldr-icon">${linkIconSvg(l.url)}</span>
+      <input class="ldr-title" value="${ttl}" placeholder="${ph}" oninput="linkDraftSetTitle(${i}, this.value)" title="Đặt tên hiển thị — bỏ trống sẽ dùng: ${ph}">
+      <button class="ldr-del" onclick="linkDraftRemove(${i}, ${idx})" title="Xoá">×</button>
+    </div>`;
+  }).join('');
+}
+function linkDraftSetTitle(i, val) { if (_linkDraft[i]) _linkDraft[i].title = val; }
+
+function addDraftLinks(text, idx) {
+  const tokens = String(text || '').split(/\s+/).map(s => s.trim()).filter(Boolean);
+  let added = 0;
+  tokens.forEach(tok => {
+    if (!/^https?:\/\//i.test(tok) && !/^[\w-]+(\.[\w-]+)+/.test(tok)) return; // bỏ qua chữ không phải URL
+    const url = normalizeUrl(tok);
+    if (_linkDraft.some(l => l.url === url)) return; // tránh trùng
+    _linkDraft.push({ url, title: '' });
+    added++;
+  });
+  if (added) {
+    const list = document.getElementById('link-draft-list');
+    if (list) list.innerHTML = renderLinkDraft(idx);
+  }
+  return added;
+}
+
+function linkPasteKey(e, idx) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const inp = e.target;
+  if (addDraftLinks(inp.value, idx)) inp.value = '';
+}
+
+function linkOnPaste(e, idx) {
+  const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (!text) return;
+  e.preventDefault();
+  addDraftLinks(text, idx);
+  e.target.value = '';
+}
+
+function linkDraftRemove(i, idx) {
+  _linkDraft.splice(i, 1);
+  const list = document.getElementById('link-draft-list');
+  if (list) list.innerHTML = renderLinkDraft(idx);
 }
 
 function drawerSaveLinks(idx) {
   const t = _taskStore[idx];
   if (!t) return;
-  const rows = document.querySelectorAll('#link-edit-list .link-edit-row');
-  const links = [];
-  rows.forEach(r => {
-    const url = r.querySelector('.link-edit-url').value.trim();
-    const title = r.querySelector('.link-edit-title').value.trim();
-    if (url) links.push({ url, title });
-  });
-  t.links = links;
+  const inp = document.getElementById('link-paste-input'); // gom nốt link còn trong ô
+  if (inp && inp.value.trim()) addDraftLinks(inp.value, idx);
+  t.links = _linkDraft.map(l => ({ url: l.url, title: (l.title || '').trim() }));
   saveTasksToStorage();
   gistAutoSave();
   showToast('🔗 Đã lưu link', 'success', 1500);
