@@ -241,15 +241,15 @@
   }
   .ac-check:hover { border-color: var(--green); background: var(--green-bg); }
   .ac-body { flex:1; min-width:0; }
-  .ac-action { font-size:13px; font-weight:600; color:var(--text); margin-bottom:2px; line-height:1.5; }
+  .ac-action { font-size:12px; font-weight:500; color:var(--text2); margin-bottom:2px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .ac-target { font-size:11px; color:var(--text2); margin-bottom:3px; }
   .ac-risk   { font-size:11px; line-height:1.5; margin-top:2px; }
   .r-red    { color:var(--red-text); }  .r-orange { color:var(--orange-text); }
   .r-blue   { color:var(--blue-text); } .r-amber  { color:var(--amber-text); }
   .r-purple { color:var(--purple-text); }
-  .ac-right { flex:0 0 210px; max-width:210px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
-  .ac-task-title { font-size:13px; font-weight:700; color:var(--text); text-align:right; line-height:1.4; word-break:break-word; }
-  @media (max-width:640px) { .ac-right { flex-basis:130px; max-width:130px; } }
+  .ac-right { flex:0 0 340px; max-width:340px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+  .ac-task-title { font-size:15px; font-weight:800; color:var(--text); text-align:right; line-height:1.35; word-break:break-word; letter-spacing:-.01em; }
+  @media (max-width:640px) { .ac-right { flex-basis:140px; max-width:140px; } }
 
   .wait-chip {
     display:inline-flex; align-items:center; gap:4px;
