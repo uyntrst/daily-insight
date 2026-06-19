@@ -195,9 +195,13 @@
   .stat {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 12px 8px; text-align: center;
-    box-shadow: var(--shadow-sm); transition: all .15s;
+    box-shadow: var(--shadow-sm); transition: all .15s; cursor: pointer;
   }
   .stat:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .stat.active { border-width: 2px; padding: 11px 7px; }
+  .main-filter-hint { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2); margin: 2px 0 -6px; }
+  .main-filter-hint button { background:none; border:1px solid var(--border); border-radius:6px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:var(--font); color:var(--text2); }
+  .main-filter-hint button:hover { border-color:var(--blue); color:var(--blue); }
   .stat .s-emoji { font-size:13px; }
   .stat .s-num { font-size:22px; font-weight:800; line-height:1.1; margin: 3px 0 2px; }
   .stat .s-label { font-size:10px; color:var(--text3); font-weight:500; }
@@ -243,7 +247,9 @@
   .r-red    { color:var(--red-text); }  .r-orange { color:var(--orange-text); }
   .r-blue   { color:var(--blue-text); } .r-amber  { color:var(--amber-text); }
   .r-purple { color:var(--purple-text); }
-  .ac-right { flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .ac-right { flex:0 0 210px; max-width:210px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+  .ac-task-title { font-size:13px; font-weight:700; color:var(--text); text-align:right; line-height:1.4; word-break:break-word; }
+  @media (max-width:640px) { .ac-right { flex-basis:130px; max-width:130px; } }
 
   .wait-chip {
     display:inline-flex; align-items:center; gap:4px;
@@ -1414,6 +1420,7 @@ function mapRow(r) {
 // ── RENDER ─────────────────────────────────────────────────────────────────
 let _taskStore = [];
 let _currentFileName = '';
+let _mainGroupFilter = [];  // [] = show all; chứa các key: 'urgent'|'inprog'|'clarify'|'waiting'|'onhold'|'nmi'
 
 function saveTasksToStorage() {
   try { localStorage.setItem('_taskStore', JSON.stringify(_taskStore)); localStorage.setItem('_fileName', _currentFileName); } catch {}
@@ -1538,19 +1545,28 @@ function renderMain(tasks) {
     nmi:     tasks.filter(t=>t.needMoreInfo).length,
   };
 
-  let html = `
-    <div class="stat-row">
-      <div class="stat"><div class="s-emoji">🔴</div><div class="s-num" style="color:var(--red)">${counts.urgent}</div><div class="s-label">Urgent</div></div>
-      <div class="stat"><div class="s-emoji">🟠</div><div class="s-num" style="color:var(--orange)">${counts.inprog}</div><div class="s-label">In progress</div></div>
-      <div class="stat"><div class="s-emoji">🟡</div><div class="s-num" style="color:var(--amber)">${counts.clarify}</div><div class="s-label">Cần làm rõ</div></div>
-      <div class="stat"><div class="s-emoji">🔵</div><div class="s-num" style="color:var(--blue)">${counts.waiting}</div><div class="s-label">Waiting</div></div>
-      <div class="stat"><div class="s-emoji">🟣</div><div class="s-num" style="color:var(--purple)">${counts.onhold}</div><div class="s-label">On hold</div></div>
-      <div class="stat"><div class="s-emoji">⚪</div><div class="s-num" style="color:var(--text3)">${counts.nmi}</div><div class="s-label">Need Info</div></div>
-    </div>`;
+  const sf = _mainGroupFilter;
+  const isSel = k => sf.includes(k);
+  const statDefs = [
+    { key:'urgent',  emoji:'🔴', num:counts.urgent,  label:'Urgent',      color:'var(--red)',    bg:'var(--red-bg)' },
+    { key:'inprog',  emoji:'🟠', num:counts.inprog,  label:'In progress', color:'var(--orange)', bg:'var(--orange-bg)' },
+    { key:'clarify', emoji:'🟡', num:counts.clarify, label:'Cần làm rõ',  color:'var(--amber)',  bg:'var(--amber-bg)' },
+    { key:'waiting', emoji:'🔵', num:counts.waiting, label:'Waiting',     color:'var(--blue)',   bg:'var(--blue-bg)' },
+    { key:'onhold',  emoji:'🟣', num:counts.onhold,  label:'On hold',     color:'var(--purple)', bg:'var(--purple-bg)' },
+    { key:'nmi',     emoji:'⚪', num:counts.nmi,     label:'Need Info',   color:'var(--text3)',  bg:'var(--surface2)' },
+  ];
+  let html = `<div class="stat-row">` + statDefs.map(s =>
+    `<div class="stat${isSel(s.key)?' active':''}" onclick="toggleStatFilter('${s.key}')"${isSel(s.key)?` style="border-color:${s.color};background:${s.bg}"`:''}>
+      <div class="s-emoji">${s.emoji}</div><div class="s-num" style="color:${s.color}">${s.num}</div><div class="s-label">${s.label}</div>
+    </div>`).join('') + `</div>`;
+  if (sf.length) {
+    const labels = statDefs.filter(s => isSel(s.key)).map(s => `<b style="color:${s.color}">${s.label}</b>`).join(', ');
+    html += `<div class="main-filter-hint">🔍 Đang lọc: ${labels} <button onclick="clearStatFilter()">× Bỏ lọc</button></div>`;
+  }
 
   // URGENT + overdue in-progress
   const urgentAll = [...urgent, ...inprog.filter(t => t.deadline && deadlineStatus(t.deadline)?.type === 'overdue')];
-  if (urgentAll.length) {
+  if (urgentAll.length && (!sf.length || isSel('urgent'))) {
     html += `<div>
       <div class="sec-head"><span>🔴</span><h2 style="color:var(--red)">Cần làm ngay hôm nay</h2><span class="sec-count">${urgentAll.length} tasks</span><div class="sec-line"></div></div>
       <div class="action-stack">`;
@@ -1560,7 +1576,7 @@ function renderMain(tasks) {
 
   // IN PROGRESS
   const inprogNormal = inprog.filter(t => !t.deadline || deadlineStatus(t.deadline)?.type !== 'overdue');
-  if (inprogNormal.length) {
+  if (inprogNormal.length && (!sf.length || isSel('inprog'))) {
     html += `<div>
       <div class="sec-head"><span>🟠</span><h2 style="color:var(--orange)">Đang chạy — cần đẩy tiếp</h2><span class="sec-count">${inprogNormal.length} tasks</span><div class="sec-line"></div></div>
       <div class="action-stack">`;
@@ -1569,7 +1585,7 @@ function renderMain(tasks) {
   }
 
   // WAITING
-  if (waiting.length) {
+  if (waiting.length && (!sf.length || isSel('waiting'))) {
     html += `<div>
       <div class="sec-head"><span>🔵</span><h2 style="color:var(--blue)">Đang chờ — cần follow-up</h2><span class="sec-count">${waiting.length} items</span><div class="sec-line"></div></div>
       <div class="action-stack">`;
@@ -1578,7 +1594,7 @@ function renderMain(tasks) {
   }
 
   // CLARIFY
-  if (clarify.length) {
+  if (clarify.length && (!sf.length || isSel('clarify'))) {
     html += `<div>
       <div class="sec-head"><span>🟡</span><h2 style="color:var(--amber)">Cần làm rõ</h2><span class="sec-count">${clarify.length} tasks</span><div class="sec-line"></div></div>
       <div class="action-stack">`;
@@ -1587,7 +1603,7 @@ function renderMain(tasks) {
   }
 
   // ON HOLD
-  if (onhold.length) {
+  if (onhold.length && (!sf.length || isSel('onhold'))) {
     html += `<div class="section-block">
       <div class="section-head" style="color:var(--purple)">
         <span>🟣</span><span>On hold</span><span class="section-count">${onhold.length} tasks</span><div class="section-line"></div>
@@ -1609,7 +1625,7 @@ function renderMain(tasks) {
   }
 
   // NEED MORE INFO
-  if (nmi.length) {
+  if (nmi.length && (!sf.length || isSel('nmi'))) {
     html += `<div class="section-block">
       <div class="section-head" style="color:var(--text2)">
         <span>⚪</span><span>Need More Info</span><span class="section-count">${nmi.length} tasks</span><div class="section-line"></div>
@@ -1630,8 +1646,26 @@ function renderMain(tasks) {
     html += `</div></div>`;
   }
 
+  if (sf.length && sf.reduce((n,k)=>n+(counts[k]||0),0) === 0) {
+    html += `<div style="text-align:center;padding:50px 0;color:var(--text3);font-size:14px">Không có task nào ở nhóm đã chọn</div>`;
+  }
+
   document.getElementById('main-panel').innerHTML = html;
   updateDoneCount();
+}
+
+function toggleStatFilter(key) {
+  const i = _mainGroupFilter.indexOf(key);
+  if (i >= 0) _mainGroupFilter.splice(i, 1);
+  else _mainGroupFilter.push(key);
+  const active = _taskStore.filter(t => t.group !== 'done' && t.hidden !== 'ok');
+  renderMain(active);
+}
+
+function clearStatFilter() {
+  _mainGroupFilter = [];
+  const active = _taskStore.filter(t => t.group !== 'done' && t.hidden !== 'ok');
+  renderMain(active);
 }
 
 function updateDoneCount() {
@@ -2756,17 +2790,22 @@ function renderAC(t, color) {
   const pk = parkinsonAnalysis(t.deadline, t.status);
   const pkBadge = (pk && pk.color !== 'green') ? `<span class="pk-card-badge ${pk.color}">⏳ ${pk.color==='red'?'Parkinson cao':pk.color==='orange'?'Parkinson':pk.color==='amber'?'Parkinson nhẹ':''}</span>` : '';
 
+  // Trái: action → nếu trống thì mô tả → nếu trống thì title
+  const leftText = t.nextAction || t.description || t.task;
+  const dlBadge = deadlineBadge(t);
   return `
     <div class="ac ${color}" onclick="openDrawer(${idx})">
       <span class="ac-check" onclick="event.stopPropagation();markDone(${idx})"></span>
       <div class="ac-body">
-        <div class="ac-action">${esc(t.nextAction || '❓ Chưa có next action')}</div>
-        <div class="ac-target">${esc(t.task)}${t.description ? ` · ${t.description.slice(0,80)}` : ''}</div>
+        <div class="ac-action">${esc(leftText)}</div>
         ${risk ? `<div class="ac-risk ${riskCls}">${esc(risk)}</div>` : ''}
         ${t.waitingFor ? `<div class="wait-chip">🔵 Chờ: ${esc(t.waitingFor)}</div>` : ''}
         <div style="display:flex;gap:5px;flex-wrap:wrap">${logBadge}${interruptBadge}${pkBadge}</div>
       </div>
-      <div class="ac-right">${deadlineBadge(t)}</div>
+      <div class="ac-right">
+        <div class="ac-task-title">${esc(t.task)}</div>
+        ${dlBadge}
+      </div>
     </div>`;
 }
 
