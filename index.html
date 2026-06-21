@@ -247,9 +247,7 @@
   .r-red    { color:var(--red-text); }  .r-orange { color:var(--orange-text); }
   .r-blue   { color:var(--blue-text); } .r-amber  { color:var(--amber-text); }
   .r-purple { color:var(--purple-text); }
-  .ac-right { flex:0 0 340px; max-width:340px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
-  .ac-task-title { font-size:15px; font-weight:800; color:var(--text); text-align:right; line-height:1.35; word-break:break-word; letter-spacing:-.01em; }
-  @media (max-width:640px) { .ac-right { flex-basis:140px; max-width:140px; } }
+  .ac-right { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
 
   .wait-chip {
     display:inline-flex; align-items:center; gap:4px;
@@ -2868,20 +2866,22 @@ function renderAC(t, color) {
   const pk = parkinsonAnalysis(t.deadline, t.status);
   const pkBadge = (pk && pk.color !== 'green') ? `<span class="pk-card-badge ${pk.color}">⏳ ${pk.color==='red'?'Parkinson cao':pk.color==='orange'?'Parkinson':pk.color==='amber'?'Parkinson nhẹ':''}</span>` : '';
 
-  // Trái: action → nếu trống thì mô tả → nếu trống thì title
-  const leftText = t.nextAction || t.description || t.task;
+  // Trái: title task (dòng chính) → dưới là next action nếu có, không thì mô tả
   const dlBadge = deadlineBadge(t);
   return `
     <div class="ac ${color}" onclick="openDrawer(${idx})">
       <span class="ac-check" onclick="event.stopPropagation();markDone(${idx})"></span>
       <div class="ac-body">
-        <div class="ac-action">${esc(leftText)}</div>
+        <div class="ac-action">${esc(t.task)}</div>
+        ${t.nextAction
+          ? `<div class="ac-target">→ ${esc(t.nextAction)}</div>`
+          : (t.description ? `<div class="ac-target">${esc(t.description.slice(0,120))}</div>` : '')
+        }
         ${risk ? `<div class="ac-risk ${riskCls}">${esc(risk)}</div>` : ''}
         ${t.waitingFor ? `<div class="wait-chip">🔵 Chờ: ${esc(t.waitingFor)}</div>` : ''}
         <div style="display:flex;gap:5px;flex-wrap:wrap">${logBadge}${interruptBadge}${pkBadge}</div>
       </div>
       <div class="ac-right">
-        <div class="ac-task-title">${esc(t.task)}</div>
         ${dlBadge}
       </div>
     </div>`;
